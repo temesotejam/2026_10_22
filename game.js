@@ -90,9 +90,14 @@ function editorTurn() {
       const before = state.editor.pos; state.editor.pos = detours[(state.pulse.clock + state.turns + step) % detours.length]; state.traces.set(before, { ttl: 3, age: 0 }); state.event = "隔離を前に、改竄者が別ルートを探しています。新しい痕跡を追ってください。"; addLog("改竄者が隔離を迂回中。"); break;
     }
     if (path.length < 2) break;
-    const before = state.editor.pos; state.editor.pos = path[1]; state.traces.set(before, { ttl: 3, age: 0 });
+    const before = state.editor.pos; const next = path[1];
+    if (next === state.player) {
+      const escapes = neighbors(before).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
+      if (!escapes.length) return finish(true, `${NODES[before]}で改竄者を追い詰め、確保しました。`);
+      state.editor.pos = escapes[0]; state.traces.set(before, { ttl: 3, age: 0 }); state.event = `改竄者はあなたを察知し、「${NODES[escapes[0]]}」へ逃げました。新しい痕跡を追ってください。`; addLog("改竄者が監査員を避けて逃走。"); break;
+    }
+    state.editor.pos = next; state.traces.set(before, { ttl: 3, age: 0 });
     if (state.pulse.deceptive && (state.pulse.clock + state.turns + step) % 3 === 0) { const fake = neighbors(before).find(node => node !== state.editor.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, { ttl: 2, age: 0 }); }
-    if (state.editor.pos === state.player) return finish(true, `改竄者を${NODES[state.player]}で待ち伏せ、確保しました。`);
     if (state.editor.pos === target) { state.editor.charge = 0; state.event = `警報：改竄者が「${NODES[target]}」の記録を書き換えようとしています（準備 0 / 2）。`; addLog(`${NODES[target]}で改竄の兆候を検知。`); break; }
   }
 }
