@@ -53,8 +53,8 @@ function createPlan() {
   state.bot = { pos: 0, targets, index: 0, pace: pulse.pace };
 }
 function newGame() {
-  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "侵入者は北西から入りました。痕跡を追ってください。";
-  createPlan(); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
+  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "侵入者は「港」から入りました。金色の ◌ が最初の痕跡です。";
+  createPlan(); state.traces.set(state.bot.pos, 3); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
 }
 function distance(from, to) { const path = shortestPath(from, to); return path ? path.length - 1 : 99; }
 function canMove(node) { return neighbors(state.player).includes(node) && !state.blocked.has(node); }
