@@ -31,6 +31,7 @@
       .node .trace.old { border-color:#857965; background:#e2d7b9; color:#655a4c; animation:none; }
       .node.charging { border-color:#d3432e; box-shadow:0 0 0 5px rgba(211,67,46,.24),0 3px 8px rgba(84,52,19,.32); animation:charge-alert 1s infinite; }
       .node .target.charging { background:#9d2d22; color:#fff1d4; }
+      .node .scan-reading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:3px 6px; border:1px solid #367a4a; border-radius:99px; background:#e3f1c9; color:#245b34; font-size:.61rem; font-weight:900; line-height:1; white-space:nowrap; }
       @keyframes charge-alert { 50% { box-shadow:0 0 0 9px rgba(211,67,46,0),0 3px 8px rgba(84,52,19,.32); } }
       @keyframes trace-badge { 50% { transform:translateX(-50%) translateY(-3px); } }
     </style>
@@ -70,8 +71,8 @@
         <aside class="actions panel">
           <p class="eyebrow">YOUR TURN</p><h2>一手を選ぶ</h2>
           <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。侵入者がいれば捕まえる。</span></button>
-          <button data-mode="scan" class="action" type="button"><strong>スキャン</strong><span>任意の地点を調べ、侵入者までの距離を知る。</span></button>
-          <button data-mode="block" class="action" type="button"><strong>封鎖</strong><span>一地点を2手のあいだ閉鎖する。</span></button>
+          <button data-mode="scan" class="action" type="button"><strong>スキャン</strong><span>任意の地点を調べ、侵入者までの距離を知る。結果は次の行動まで残る。</span></button>
+          <button data-mode="block" class="action" type="button"><strong>封鎖</strong><span>一地点を相手の2手のあいだ閉鎖する。赤い準備地点を狙える。</span></button>
           <div class="legend"><span>● あなた（現在地）</span><span>橙の札：新しい痕跡</span><span>茶の札：古い痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
           <div class="log-box"><p class="eyebrow">INTELLIGENCE LOG</p><ul id="log"></ul></div>
         </aside>
