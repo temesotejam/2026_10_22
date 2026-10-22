@@ -1,6 +1,7 @@
 "use strict";
 
 const NODES = ["港", "市場", "塔", "駅", "公園", "図書館", "病院", "劇場", "工場", "広場", "研究所", "屋上"];
+const MAP_POINTS = [[9, 18], [32, 12], [60, 18], [87, 13], [19, 42], [43, 35], [67, 42], [88, 34], [11, 73], [38, 78], [66, 68], [89, 76]];
 const state = { player: 8, bot: null, turns: 10, blocks: 2, mode: "move", blocked: new Map(), traces: new Map(), activated: new Set(), scan: null, pulse: null, pulses: 0, status: "playing", log: [], event: "まず「移動」を選び、隣の地点をクリックしてください。" };
 const $ = selector => document.querySelector(selector);
 const neighbors = node => [node - 4, node + 4, node % 4 ? node - 1 : -1, node % 4 !== 3 ? node + 1 : -1].filter(value => value >= 0 && value < 12);
@@ -117,8 +118,14 @@ function render() {
   $("#event").textContent = state.event; $("#log").innerHTML = state.log.map(item => `<li>${item}</li>`).join("");
   document.querySelectorAll("[data-mode]").forEach(button => { button.classList.toggle("active", button.dataset.mode === state.mode); button.disabled = state.status !== "playing" || (button.dataset.mode === "block" && !state.blocks); });
   const board = $("#board"); board.innerHTML = "";
+  const routes = document.createElementNS("http://www.w3.org/2000/svg", "svg"); routes.setAttribute("class", "routes"); routes.setAttribute("viewBox", "0 0 100 100"); routes.setAttribute("preserveAspectRatio", "none"); routes.setAttribute("aria-hidden", "true");
+  NODES.forEach((_, node) => neighbors(node).filter(next => next > node).forEach(next => {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line"); line.setAttribute("x1", MAP_POINTS[node][0]); line.setAttribute("y1", MAP_POINTS[node][1]); line.setAttribute("x2", MAP_POINTS[next][0]); line.setAttribute("y2", MAP_POINTS[next][1]); line.setAttribute("class", state.blocked.has(node) || state.blocked.has(next) ? "route closed-route" : "route"); routes.append(line);
+  }));
+  board.append(routes);
   NODES.forEach((name, node) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "node"; button.dataset.node = node; button.disabled = state.status !== "playing";
+    button.style.setProperty("--x", `${MAP_POINTS[node][0]}%`); button.style.setProperty("--y", `${MAP_POINTS[node][1]}%`);
     if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.activated.has(node)) button.classList.add("activated"); if (state.scan === node) button.classList.add("scan-result");
     const trace = state.traces.has(node) ? '<span class="trace">◌</span>' : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : "";
     button.innerHTML = `<span class="name">${name}</span><span class="symbol">${node === state.player ? "●" : state.blocked.has(node) ? "▣" : state.activated.has(node) ? "✦" : icon(node)}</span>${trace}${target}`; board.append(button);
