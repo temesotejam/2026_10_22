@@ -29,6 +29,9 @@
       .node .trace { top:calc(100% + 23px); right:auto; bottom:auto; left:50%; transform:translateX(-50%); padding:3px 6px; border:1px solid #9b4b15; border-radius:99px; background:#fff0c7; color:#843c13; font-size:.61rem; font-weight:900; line-height:1; text-shadow:none; animation:trace-badge .9s infinite; }
       .node .trace.fresh { border-color:#a64218; background:#ffe09a; color:#863310; }
       .node .trace.old { border-color:#857965; background:#e2d7b9; color:#655a4c; animation:none; }
+      .node.charging { border-color:#d3432e; box-shadow:0 0 0 5px rgba(211,67,46,.24),0 3px 8px rgba(84,52,19,.32); animation:charge-alert 1s infinite; }
+      .node .target.charging { background:#9d2d22; color:#fff1d4; }
+      @keyframes charge-alert { 50% { box-shadow:0 0 0 9px rgba(211,67,46,0),0 3px 8px rgba(84,52,19,.32); } }
       @keyframes trace-badge { 50% { transform:translateX(-50%) translateY(-3px); } }
     </style>
   </head>
@@ -41,7 +44,7 @@
 
       <section class="brief panel">
         <div><p class="eyebrow">ONE SENTENCE RULE</p><h2>侵入者が <span class="accent">3つの中継点</span> を起動する前に、捕まえるか経路を封鎖する。</h2></div>
-        <p>あなたは青い監視員。侵入者は見えませんが、移動した地点に痕跡を残します。毎手、<strong>移動・スキャン・封鎖</strong>のどれか一つを選んでください。侵入者はあなたの行動後に動きます。</p>
+        <p>あなたは青い監視員。侵入者は見えませんが、移動した地点に痕跡を残します。中継点では2回かけて起動準備をするため、その地点は地図上に公開されます。毎手、<strong>移動・スキャン・封鎖</strong>のどれか一つを選んでください。</p>
       </section>
 
       <section class="pulse panel">
