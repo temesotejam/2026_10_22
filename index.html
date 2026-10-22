@@ -25,6 +25,9 @@
       .node.blocked { background:radial-gradient(circle at 35% 28%,#d99282,#86453f); }
       .node.activated { background:radial-gradient(circle at 35% 28%,#e7bc6a,#a87231); }
       .node .you { background:#075b6c; color:#e6ffff; }
+      .node.has-trace { border-color:#df7b1f; box-shadow:0 0 0 4px rgba(223,123,31,.28),0 3px 8px rgba(84,52,19,.32); }
+      .node .trace { top:calc(100% + 23px); right:auto; bottom:auto; left:50%; transform:translateX(-50%); padding:3px 6px; border:1px solid #9b4b15; border-radius:99px; background:#fff0c7; color:#843c13; font-size:.61rem; font-weight:900; line-height:1; text-shadow:none; animation:trace-badge .9s infinite; }
+      @keyframes trace-badge { 50% { transform:translateX(-50%) translateY(-3px); } }
     </style>
   </head>
   <body>
@@ -64,7 +67,7 @@
           <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。侵入者がいれば捕まえる。</span></button>
           <button data-mode="scan" class="action" type="button"><strong>スキャン</strong><span>任意の地点を調べ、侵入者までの距離を知る。</span></button>
           <button data-mode="block" class="action" type="button"><strong>封鎖</strong><span>一地点を2手のあいだ閉鎖する。</span></button>
-          <div class="legend"><span>● あなた（現在地）</span><span>◌ 痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
+          <div class="legend"><span>● あなた（現在地）</span><span>橙の札：痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
           <div class="log-box"><p class="eyebrow">INTELLIGENCE LOG</p><ul id="log"></ul></div>
         </aside>
       </section>

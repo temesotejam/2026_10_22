@@ -54,7 +54,7 @@ function createPlan() {
   state.bot = { pos: 0, targets, index: 0, pace: pulse.pace };
 }
 function newGame() {
-  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "あなたは「工場」にいます。侵入者は「港」から入り、金色の ◌ を残しました。";
+  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "あなたは「工場」にいます。侵入者は「港」から入り、橙色の「痕跡」札を残しました。";
   createPlan(); state.traces.set(state.bot.pos, 3); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
 }
 function distance(from, to) { const path = shortestPath(from, to); return path ? path.length - 1 : 99; }
@@ -126,8 +126,8 @@ function render() {
   NODES.forEach((name, node) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "node"; button.dataset.node = node; button.disabled = state.status !== "playing";
     button.style.setProperty("--x", `${MAP_POINTS[node][0]}%`); button.style.setProperty("--y", `${MAP_POINTS[node][1]}%`);
-    if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.activated.has(node)) button.classList.add("activated"); if (state.scan === node) button.classList.add("scan-result");
-    const trace = state.traces.has(node) ? '<span class="trace">◌</span>' : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
+    if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.activated.has(node)) button.classList.add("activated"); if (state.traces.has(node)) button.classList.add("has-trace"); if (state.scan === node) button.classList.add("scan-result");
+    const trace = state.traces.has(node) ? '<span class="trace">痕跡</span>' : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
     button.innerHTML = `<span class="name">${name}</span><span class="symbol">${node === state.player ? "●" : state.blocked.has(node) ? "▣" : state.activated.has(node) ? "✦" : icon(node)}</span>${you}${trace}${target}`; board.append(button);
   });
   const result = $("#result"); result.classList.toggle("hidden", state.status === "playing");
