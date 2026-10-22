@@ -3,87 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111827" />
-    <title>現実改稿局</title>
+    <meta name="theme-color" content="#121526" />
+    <title>遠方予報局</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="shell">
       <header class="masthead">
         <div>
-          <p class="eyebrow">THE REALITY REVISION BUREAU</p>
-          <h1>現実改稿局</h1>
-          <p class="lede">今日の空を読み、壊れた記録を修復せよ。</p>
+          <p class="eyebrow">A DAILY REALITY-FED CARD ROGUELITE</p>
+          <h1>遠方予報局</h1>
+          <p class="lede">実在する遠方の空を手札にして、崩れた天候譜を完成させる。</p>
         </div>
-        <div class="edition-stamp" aria-label="今日の版">
-          <span>今日の版</span>
-          <strong id="edition-date">--</strong>
-        </div>
+        <button id="refresh" class="outline-button" type="button">遠方の観測を更新</button>
       </header>
 
-      <section class="briefing panel" aria-labelledby="briefing-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">DAILY OBSERVATION</p>
-            <h2 id="briefing-title">観測報告</h2>
-          </div>
-          <button class="quiet-button" id="weather-button" type="button">遠方の空を読む</button>
+      <section class="rule panel" aria-labelledby="purpose">
+        <div>
+          <p class="eyebrow">WHAT YOU DO</p>
+          <h2 id="purpose">カードを組み、歪みをゼロにする。</h2>
         </div>
-        <p id="observation-text" class="observation" aria-live="polite"></p>
-        <div class="omen-list" id="omen-list"></div>
-        <p class="fine-print">月齢は端末の日付から計算します。「遠方の空を読む」は、世界の候補都市からランダムに選んだ一点の公開天気だけを使います。位置情報や個人情報は使いません。</p>
+        <p>ランダムに選ばれた世界各地の<strong>実際の天気</strong>が、今日だけの観測カードになります。最大5枚を選んで「観測式」を提出し、同じ空模様・連続した強度・異なる地域を組み合わせて大きな得点を作ってください。提出回数が尽きる前に、その章の歪みをゼロにすれば勝ちです。</p>
       </section>
 
-      <section class="play-area" aria-label="任務画面">
-        <aside class="mission panel">
-          <p class="eyebrow">CASE FILE</p>
-          <h2 id="mission-name">記録を回収せよ</h2>
-          <p id="mission-copy">散らばった三つの記録片を集め、出口へ到達してください。</p>
-          <dl class="stats">
-            <div><dt>体力</dt><dd id="health">●●●</dd></div>
-            <div><dt>残り手番</dt><dd id="turns">12</dd></div>
-            <div><dt>記録片</dt><dd id="records">0 / 3</dd></div>
-            <div><dt>校正印</dt><dd id="seals">0</dd></div>
-          </dl>
-          <div class="status-box">
-            <strong>今日の規則</strong>
-            <p id="rule-text"></p>
-          </div>
-          <button id="new-case" class="quiet-button" type="button">任務を組み直す</button>
-        </aside>
+      <section class="status-grid" aria-label="任務の状態">
+        <div class="stat panel"><span>章</span><strong id="chapter">読み込み中</strong></div>
+        <div class="stat panel"><span>残る歪み</span><strong id="distortion">—</strong></div>
+        <div class="stat panel"><span>提出できる回数</span><strong id="papers">—</strong></div>
+        <div class="stat panel"><span>獲得した記録</span><strong id="score">0</strong></div>
+      </section>
 
-        <section class="board-panel panel">
-          <div class="board-topline">
-            <div><p class="eyebrow">FIELD EDITOR</p><h2>現場記録</h2></div>
-            <p id="objective" class="objective">記録を集めて出口へ。</p>
+      <section class="play-grid">
+        <section class="hand panel" aria-labelledby="hand-title">
+          <div class="section-title">
+            <div><p class="eyebrow">YOUR HAND</p><h2 id="hand-title">今日の観測</h2></div>
+            <p id="source-note" class="source-note">遠方の観測所へ照会中…</p>
           </div>
-          <div id="board" class="board" role="grid" aria-label="5 x 5 の現場マップ"></div>
-          <p id="message" class="message" aria-live="polite"></p>
+          <div id="cards" class="cards" aria-live="polite"></div>
+          <p id="selection-note" class="selection-note">カードを1〜5枚選んでください。</p>
+          <div class="actions">
+            <button id="submit" class="primary-button" type="button">観測式を提出</button>
+            <button id="discard" class="outline-button" type="button">選んだ札を引き直す <span id="discards">(2)</span></button>
+          </div>
         </section>
 
-        <aside class="tools panel">
-          <p class="eyebrow">EDITOR'S KIT</p>
-          <h2>校正カード</h2>
-          <p class="card-note">一手番に一枚。カード後も移動できます。</p>
-          <div id="cards" class="cards"></div>
-          <div class="controls" aria-label="移動操作">
-            <button data-move="up" type="button" aria-label="上へ移動">↑</button>
-            <button data-move="left" type="button" aria-label="左へ移動">←</button>
-            <button data-move="down" type="button" aria-label="下へ移動">↓</button>
-            <button data-move="right" type="button" aria-label="右へ移動">→</button>
-          </div>
-          <button id="end-turn" class="primary-button" type="button">手番を終える</button>
-          <div class="log-wrap">
-            <p class="eyebrow">MARGINALIA</p>
+        <aside class="side-stack">
+          <section class="formula panel" aria-labelledby="formula-title">
+            <p class="eyebrow">FORMULA PREVIEW</p>
+            <h2 id="formula-title">まだ式はありません</h2>
+            <p id="formula-copy">選んだカードの組み合わせで得点が決まります。</p>
+            <div id="formula-score" class="formula-score">0</div>
+            <ul id="formula-parts" class="formula-parts"></ul>
+          </section>
+          <section class="log-panel panel">
+            <p class="eyebrow">FIELD NOTES</p>
             <ul id="log" class="log"></ul>
-          </div>
+          </section>
         </aside>
       </section>
 
-      <section class="how-to panel">
-        <p class="eyebrow">HOW TO PLAY</p>
-        <h2>事実は背景ではなく、手触りである。</h2>
-        <p>敵に捕まる前に記録片を三つ回収し、右下の出口へ向かいます。雨の版では水が広がり、風の版では敵が押し流され、月光の版では影が道を隠します。今日の現実は毎回異なる盤面の解き方になります。</p>
+      <section id="theory-panel" class="theory panel hidden" aria-live="polite">
+        <p class="eyebrow">CHOOSE A THEORY</p>
+        <h2 id="theory-title">次の章へ進めます</h2>
+        <p id="theory-copy">一つだけ恒久的な理論を採用してください。</p>
+        <div id="theory-options" class="theory-options"></div>
+      </section>
+
+      <section class="how panel">
+        <p class="eyebrow">COMBINATION GUIDE</p>
+        <div class="guide-grid">
+          <p><strong>同調</strong><br />同じ空模様を重ねる。2枚から得点が上がる。</p>
+          <p><strong>等圧線</strong><br />強度が連続する3枚以上をつなぐ。</p>
+          <p><strong>地平線</strong><br />3地域以上の観測を同じ式に入れる。</p>
+          <p><strong>前線</strong><br />4種類以上の空模様を混ぜる。</p>
+        </div>
+        <p class="fine-print">位置情報は使いません。「遠方の観測を更新」は、世界の候補都市からランダムに選ばれた公開天気だけを取得します。通信できないときは、日付をもとにした代替観測で続けられます。</p>
       </section>
     </main>
     <script src="game.js"></script>
