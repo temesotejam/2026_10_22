@@ -2,7 +2,7 @@
 
 const NODES = ["港", "市場", "塔", "駅", "公園", "図書館", "病院", "劇場", "工場", "広場", "研究所", "屋上"];
 const MAP_POINTS = [[9, 18], [32, 12], [60, 18], [87, 13], [19, 42], [43, 35], [67, 42], [88, 34], [11, 73], [38, 78], [66, 68], [89, 76]];
-const state = { player: 8, bot: null, turns: 10, blocks: 2, mode: "move", blocked: new Map(), traces: new Map(), activated: new Set(), scan: null, pulse: null, pulses: 0, status: "playing", log: [], event: "まず「移動」を選び、隣の地点をクリックしてください。" };
+const state = { player: 8, bot: null, turns: 12, blocks: 2, mode: "move", blocked: new Map(), traces: new Map(), activated: new Set(), scan: null, pulse: null, pulses: 0, status: "playing", log: [], event: "まず「移動」を選び、隣の地点をクリックしてください。" };
 const $ = selector => document.querySelector(selector);
 const neighbors = node => [node - 4, node + 4, node % 4 ? node - 1 : -1, node % 4 !== 3 ? node + 1 : -1].filter(value => value >= 0 && value < 12);
 const hash = text => [...text].reduce((value, char) => ((value << 5) - value + char.charCodeAt(0)) | 0, 2166136261) >>> 0;
@@ -54,7 +54,7 @@ function createPlan() {
   state.bot = { pos: 0, targets, index: 0, pace: pulse.pace };
 }
 function newGame() {
-  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "あなたは「工場」にいます。侵入者は「港」から入り、橙色の「痕跡」札を残しました。";
+  state.player = 8; state.turns = 12; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "あなたは「工場」にいます。侵入者は「港」から入り、橙色の「痕跡」札を残しました。";
   createPlan(); state.traces.set(state.bot.pos, { ttl: 3, age: 0 }); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
 }
 function distance(from, to) { const path = shortestPath(from, to); return path ? path.length - 1 : 99; }
@@ -71,7 +71,7 @@ function botTurn() {
   if (state.status !== "playing") return;
   decay();
   for (let step = 0; step < state.bot.pace && state.status === "playing"; step += 1) {
-    if (activateIfNeeded()) continue;
+    if (activateIfNeeded()) break;
     const target = state.bot.targets[state.bot.index]; const path = shortestPath(state.bot.pos, target);
     if (!path || path.length < 2) { addLog("侵入者は封鎖を前に、別経路を探しています。"); break; }
     const before = state.bot.pos; state.bot.pos = path[1]; state.traces.set(before, { ttl: 3, age: 0 });
@@ -79,7 +79,7 @@ function botTurn() {
       const fake = neighbors(before).find(node => node !== state.bot.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, { ttl: 2, age: 0 });
     }
     if (state.bot.pos === state.player) return finish(true, `侵入者を${NODES[state.player]}で待ち伏せ、確保しました。`);
-    activateIfNeeded();
+    if (activateIfNeeded()) break;
   }
 }
 function takeTurn() {
