@@ -55,11 +55,11 @@ function createPlan() {
 }
 function newGame() {
   state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "あなたは「工場」にいます。侵入者は「港」から入り、橙色の「痕跡」札を残しました。";
-  createPlan(); state.traces.set(state.bot.pos, 3); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
+  createPlan(); state.traces.set(state.bot.pos, { ttl: 3, age: 0 }); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
 }
 function distance(from, to) { const path = shortestPath(from, to); return path ? path.length - 1 : 99; }
 function canMove(node) { return neighbors(state.player).includes(node) && !state.blocked.has(node); }
-function decay() { for (const [node, time] of state.traces) { if (time <= 1) state.traces.delete(node); else state.traces.set(node, time - 1); } for (const [node, time] of state.blocked) { if (time <= 1) { state.blocked.delete(node); addLog(`${NODES[node]}の封鎖が解除されました。`); } else state.blocked.set(node, time - 1); } }
+function decay() { for (const [node, trace] of state.traces) { if (trace.ttl <= 1) state.traces.delete(node); else state.traces.set(node, { ttl: trace.ttl - 1, age: trace.age + 1 }); } for (const [node, time] of state.blocked) { if (time <= 1) { state.blocked.delete(node); addLog(`${NODES[node]}の封鎖が解除されました。`); } else state.blocked.set(node, time - 1); } }
 function activateIfNeeded() {
   const target = state.bot.targets[state.bot.index];
   if (state.bot.pos !== target) return false;
@@ -74,11 +74,11 @@ function botTurn() {
     if (activateIfNeeded()) continue;
     const target = state.bot.targets[state.bot.index]; const path = shortestPath(state.bot.pos, target);
     if (!path || path.length < 2) { addLog("侵入者は封鎖を前に、別経路を探しています。"); break; }
-    const before = state.bot.pos; state.bot.pos = path[1]; state.traces.set(before, 3);
+    const before = state.bot.pos; state.bot.pos = path[1]; state.traces.set(before, { ttl: 3, age: 0 });
     if (state.pulse.deceptive && (state.pulse.clock + state.turns + step) % 3 === 0) {
-      const fake = neighbors(before).find(node => node !== state.bot.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, 2);
+      const fake = neighbors(before).find(node => node !== state.bot.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, { ttl: 2, age: 0 });
     }
-    if (state.bot.pos === state.player) return finish(false, "侵入者に張り込みを抜けられました。あなたは追跡を断たれます。");
+    if (state.bot.pos === state.player) return finish(true, `侵入者を${NODES[state.player]}で待ち伏せ、確保しました。`);
     activateIfNeeded();
   }
 }
@@ -127,7 +127,7 @@ function render() {
     const button = document.createElement("button"); button.type = "button"; button.className = "node"; button.dataset.node = node; button.disabled = state.status !== "playing";
     button.style.setProperty("--x", `${MAP_POINTS[node][0]}%`); button.style.setProperty("--y", `${MAP_POINTS[node][1]}%`);
     if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.activated.has(node)) button.classList.add("activated"); if (state.traces.has(node)) button.classList.add("has-trace"); if (state.scan === node) button.classList.add("scan-result");
-    const trace = state.traces.has(node) ? '<span class="trace">痕跡</span>' : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
+    const traceInfo = state.traces.get(node); const trace = traceInfo ? `<span class="trace ${traceInfo.age === 0 ? "fresh" : "old"}">${traceInfo.age === 0 ? "新しい痕跡" : "古い痕跡"}</span>` : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
     button.innerHTML = `<span class="name">${name}</span><span class="symbol">${node === state.player ? "●" : state.blocked.has(node) ? "▣" : state.activated.has(node) ? "✦" : icon(node)}</span>${you}${trace}${target}`; board.append(button);
   });
   const result = $("#result"); result.classList.toggle("hidden", state.status === "playing");
