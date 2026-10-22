@@ -3,12 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#121321" />
+    <meta name="theme-color" content="#d9cfaa" />
     <title>封鎖線</title>
     <link rel="stylesheet" href="styles.css" />
     <style>
       .node .you { position:absolute; bottom:calc(100% + 7px); left:50%; transform:translateX(-50%); padding:3px 7px; border:1px solid var(--blue); border-radius:99px; background:#102d3b; color:#c7f4ff; font-size:.65rem; font-weight:900; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.4); }
       .node .you::after { content:""; position:absolute; top:100%; left:50%; border:5px solid transparent; border-top-color:var(--blue); transform:translateX(-50%); }
+      :root { color-scheme:light; --ink:#243228; --muted:#586253; --line:#788367; --panel:#ece3c5; --gold:#a94f20; --blue:#087c96; --red:#a8463d; --green:#4d7b4c; --shadow:rgba(52,44,27,.18); }
+      body { background:radial-gradient(circle at 16% 0,#f7edca 0,transparent 36rem),#c9c19f; }
+      .panel { background:linear-gradient(135deg,rgba(245,239,213,.96),rgba(223,213,177,.96)); }
+      .outline,.action { background:#d8d0ae; color:var(--ink); }
+      .pulse-tags span { border-color:#9d9b75; color:#256a6b; }
+      .board { border-color:#78825d; background:radial-gradient(ellipse at 17% 12%,rgba(107,145,91,.52),transparent 25%),radial-gradient(ellipse at 78% 66%,rgba(191,159,88,.38),transparent 31%),linear-gradient(120deg,#b8c590,#d8cd9b 48%,#bcad79); }
+      .board::before { opacity:.34; }
+      .board::after { color:rgba(35,52,40,.7); }
+      .route { stroke:rgba(61,85,57,.76); }
+      .closed-route { stroke:var(--red); }
+      .node { border-color:#5b715e; background:radial-gradient(circle at 35% 28%,#e9e0bf,#9d9a6d 68%); color:#273629; }
+      .node .name { color:#243228; text-shadow:0 1px 1px #eee6c8; }
+      .node.player { background:radial-gradient(circle at 35% 28%,#6bd1d3,#167487 68%); }
+      .node.blocked { background:radial-gradient(circle at 35% 28%,#d99282,#86453f); }
+      .node.activated { background:radial-gradient(circle at 35% 28%,#e7bc6a,#a87231); }
+      .node .you { background:#075b6c; color:#e6ffff; }
     </style>
   </head>
   <body>
