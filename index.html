@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#d9cfaa" />
-    <title>封鎖線</title>
+    <title>反証局</title>
     <link rel="stylesheet" href="styles.css" />
     <style>
       .node .you { position:absolute; bottom:calc(100% + 7px); left:50%; transform:translateX(-50%); padding:3px 7px; border:1px solid var(--blue); border-radius:99px; background:#102d3b; color:#c7f4ff; font-size:.65rem; font-weight:900; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.4); }
@@ -31,6 +31,8 @@
       .node .trace.old { border-color:#857965; background:#e2d7b9; color:#655a4c; animation:none; }
       .node.charging { border-color:#d3432e; box-shadow:0 0 0 5px rgba(211,67,46,.24),0 3px 8px rgba(84,52,19,.32); animation:charge-alert 1s infinite; }
       .node .target.charging { background:#9d2d22; color:#fff1d4; }
+      .node.rebutted { border-color:#417b5c; background:radial-gradient(circle at 35% 28%,#c9e1af,#65875d); }
+      .node .rebutted-mark { position:absolute; top:-21px; left:50%; transform:translateX(-50%); padding:2px 4px; border-radius:4px; background:#356143; color:#efffd5; font-size:.62rem; white-space:nowrap; }
       .node .scan-reading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:3px 6px; border:1px solid #367a4a; border-radius:99px; background:#e3f1c9; color:#245b34; font-size:.61rem; font-weight:900; line-height:1; white-space:nowrap; }
       @keyframes charge-alert { 50% { box-shadow:0 0 0 9px rgba(211,67,46,0),0 3px 8px rgba(84,52,19,.32); } }
       @keyframes trace-badge { 50% { transform:translateX(-50%) translateY(-3px); } }
@@ -39,41 +41,42 @@
   <body>
     <main class="shell">
       <header class="masthead">
-        <div><p class="eyebrow">LIVE-WORLD ASYMMETRIC BOARD GAME</p><h1>封鎖線</h1><p class="lede">見えない侵入者の3地点接続を、完成前に止める。</p></div>
-        <button id="new-game" class="outline" type="button">新しい作戦を開始</button>
+        <div><p class="eyebrow">LIVE-WORLD INVESTIGATION GAME</p><h1>反証局</h1><p class="lede">世界のノイズに紛れて記録を書き換える改竄者を、証拠で追い詰める。</p></div>
+        <button id="new-game" class="outline" type="button">新しい調査を開始</button>
       </header>
 
       <section class="brief panel">
-        <div><p class="eyebrow">ONE SENTENCE RULE</p><h2>侵入者が <span class="accent">3つの中継点</span> を起動する前に、捕まえるか経路を封鎖する。</h2></div>
-        <p>あなたは青い監視員。侵入者は見えませんが、移動した地点に痕跡を残します。中継点では2回かけて起動準備をするため、その地点は地図上に公開されます。毎手、<strong>移動・スキャン・封鎖</strong>のどれか一つを選んでください。</p>
+        <div><p class="eyebrow">ONE SENTENCE RULE</p><h2>改竄者が <span class="accent">3つの公的記録</span> を書き換える前に、確保するか、証拠で反証する。</h2></div>
+        <p>改竄者は速く移動しますが、書き換えには2手の準備が必要です。新しい痕跡を<strong>照合</strong>すると証拠が得られ、証拠2つで書き換え済みの記録を取り戻せます。毎手、<strong>移動・照合・隔離・反証</strong>の一つを選んでください。</p>
       </section>
 
       <section class="pulse panel">
         <div class="pulse-dot" id="pulse-dot"></div>
-        <div><p class="eyebrow">WORLD PULSE · 2 TURNS / 60 SEC</p><h2 id="pulse-title">世界の信号を取得中…</h2><p id="pulse-copy">外部の変化が侵入者の作戦を変えます。</p></div>
+        <div><p class="eyebrow">WORLD PULSE · 2 TURNS / 60 SEC</p><h2 id="pulse-title">世界の信号を取得中…</h2><p id="pulse-copy">外部の変化が改竄者の作戦を変えます。</p></div>
         <div id="pulse-tags" class="pulse-tags"></div>
       </section>
 
       <section class="stats">
         <div class="panel"><span>残り手数</span><strong id="turns">12</strong></div>
-        <div class="panel"><span>侵入者の進行</span><strong id="progress">0 / 3</strong></div>
-        <div class="panel"><span>封鎖できる回数</span><strong id="blocks">2</strong></div>
-        <div class="panel"><span>世界パルス</span><strong id="pulse-count">0</strong></div>
+        <div class="panel"><span>改竄された記録</span><strong id="progress">0 / 3</strong></div>
+        <div class="panel"><span>証拠</span><strong id="evidence">0 / 3</strong></div>
+        <div class="panel"><span>隔離できる回数</span><strong id="blocks">2</strong></div>
       </section>
 
       <section class="game-layout">
         <section class="board-panel panel">
-          <div class="section-head"><div><p class="eyebrow">NETWORK MAP</p><h2>中継網</h2></div><p id="task">まず「移動」を選び、隣の地点をクリックしてください。</p></div>
+          <div class="section-head"><div><p class="eyebrow">CITY ARCHIVE MAP</p><h2>都市記録網</h2></div><p id="task">まず「移動」を選び、隣の地点をクリックしてください。</p></div>
           <p class="eyebrow">方位：この地図では 上が北・左が西。地点名だけを見て遊んでも問題ありません。</p>
-          <div id="board" class="board" role="grid" aria-label="12地点の中継網"></div>
+          <div id="board" class="board" role="grid" aria-label="12地点の都市記録網"></div>
           <p id="event" class="event" aria-live="polite"></p>
         </section>
         <aside class="actions panel">
           <p class="eyebrow">YOUR TURN</p><h2>一手を選ぶ</h2>
-          <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。侵入者がいれば捕まえる。</span></button>
-          <button data-mode="scan" class="action" type="button"><strong>スキャン</strong><span>相手の行動後の距離と、次に近い地点を知る。結果は次の行動まで残る。</span></button>
-          <button data-mode="block" class="action" type="button"><strong>封鎖</strong><span>一地点を相手の2手のあいだ閉鎖する。赤い準備地点を狙える。</span></button>
-          <div class="legend"><span>● あなた（現在地）</span><span>橙の札：新しい痕跡</span><span>茶の札：古い痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
+          <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。改竄者がいれば確保する。</span></button>
+          <button data-mode="scan" class="action" type="button"><strong>照合</strong><span>行動後の距離と方向を知る。新しい痕跡なら証拠も得る。</span></button>
+          <button data-mode="block" class="action" type="button"><strong>隔離</strong><span>一地点を相手の2手のあいだ閉鎖し、改竄準備を中断する。</span></button>
+          <button data-mode="refute" class="action" type="button"><strong>反証</strong><span>証拠を2つ使い、書き換え済みの記録を一つ取り戻す。</span></button>
+          <div class="legend"><span>● あなた（現在地）</span><span>橙の札：新しい痕跡</span><span>茶の札：古い痕跡</span><span>赤：改竄準備中</span><span>✦ 書き換え済み</span><span>緑：反証済み</span><span>▣ 隔離中</span></div>
           <div class="log-box"><p class="eyebrow">INTELLIGENCE LOG</p><ul id="log"></ul></div>
         </aside>
       </section>
