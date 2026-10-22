@@ -19,7 +19,7 @@ const THEORIES = [
   { id: "pressure", name: "等圧の理論", text: "等圧線（連続強度）の加点が +16。" },
   { id: "water", name: "水文学の理論", text: "雨・雪・霧のカードは、基礎点が +5。" },
 ];
-const state = { deck: [], hand: [], discard: [], selected: new Set(), chapter: 1, target: 0, papers: 4, discards: 2, score: 0, theories: [], phase: "loading", log: [], source: "" };
+const state = { deck: [], hand: [], discard: [], selected: new Set(), chapter: 1, target: 0, papers: 4, discards: 2, score: 0, theories: [], phase: "loading", log: [], source: "", lastResult: null };
 const $ = selector => document.querySelector(selector);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const hash = text => [...text].reduce((value, char) => ((value << 5) - value + char.charCodeAt(0)) | 0, 2166136261) >>> 0;
@@ -36,7 +36,7 @@ function cardsFromObservations(observations) { return shuffle(observations.flatM
 function draw() { while (state.hand.length < 8 && (state.deck.length || state.discard.length)) { if (!state.deck.length) state.deck = shuffle(state.discard.splice(0)); state.hand.push(state.deck.pop()); } }
 function chapterTarget() { return [105, 160, 230][state.chapter - 1] || 230; }
 function resetChapter() { state.target = chapterTarget(); state.papers = 4; state.discards = 2; state.selected.clear(); state.deck.push(...state.hand.splice(0), ...state.discard.splice(0)); shuffle(state.deck); draw(); }
-function start(observations, source) { state.deck = cardsFromObservations(observations); state.hand = []; state.discard = []; state.selected.clear(); state.chapter = 1; state.score = 0; state.theories = []; state.phase = "playing"; state.log = ["今日の手札を配りました。良い組み合わせを探してください。"]; state.source = source; resetChapter(); render(); }
+function start(observations, source) { state.deck = cardsFromObservations(observations); state.hand = []; state.discard = []; state.selected.clear(); state.chapter = 1; state.score = 0; state.theories = []; state.phase = "playing"; state.log = ["今日の手札を配りました。良い組み合わせを探してください。"]; state.source = source; state.lastResult = null; resetChapter(); render(); }
 function selectedCards() { return state.hand.filter(card => state.selected.has(card.id)); }
 function longestRun(values) { const unique = [...new Set(values)].sort((a, b) => a - b); let best = 1; let current = 1; for (let index = 1; index < unique.length; index += 1) { current = unique[index] === unique[index - 1] + 1 ? current + 1 : 1; best = Math.max(best, current); } return best; }
 function calculate(cards) {
@@ -61,19 +61,19 @@ function calculate(cards) {
 }
 function submit() {
   if (state.phase !== "playing") return; const cards = selectedCards(); if (!cards.length) return notice("まずカードを選んでください。");
-  const result = calculate(cards); state.target -= result.score; state.score += result.score; state.papers -= 1; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.discard.push(...cards); state.selected.clear();
+  const result = calculate(cards); state.lastResult = result; state.target -= result.score; state.score += result.score; state.papers -= 1; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.discard.push(...cards); state.selected.clear();
   log(`「${result.name}」で ${result.score} 点。あと ${Math.max(0, state.target)} 点です。`); draw();
   if (state.target <= 0) return completeChapter(); if (state.papers <= 0) { state.phase = "lost"; log("出せる回数を使い切りました。最初からもう一度挑戦できます。"); return render(); } render();
 }
 function discard() {
   if (state.phase !== "playing") return; const cards = selectedCards(); if (!cards.length) return notice("引き直すカードを選んでください。"); if (!state.discards) return notice("この章では、もう引き直せません。");
-  state.discards -= 1; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.deck.push(...cards); shuffle(state.deck); state.selected.clear(); draw(); log(`${cards.length} 枚を遠方の束へ戻し、引き直しました。`); render();
+  state.discards -= 1; state.lastResult = null; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.deck.push(...cards); shuffle(state.deck); state.selected.clear(); draw(); log(`${cards.length} 枚を遠方の束へ戻し、引き直しました。`); render();
 }
 function completeChapter() {
   if (state.chapter === 3) { state.phase = "won"; log("全3ラウンドをクリアしました。今日の遠方の空を、最高得点の手に変えました。"); return render(); }
   state.phase = "theory"; log(`ラウンド ${state.chapter} クリア。次のラウンドのパワーアップを選びます。`); render();
 }
-function chooseTheory(id) { state.theories.push(id); state.chapter += 1; state.phase = "playing"; resetChapter(); log(`パワーアップ「${THEORIES.find(theory => theory.id === id).name}」を選びました。`); render(); }
+function chooseTheory(id) { state.theories.push(id); state.chapter += 1; state.phase = "playing"; state.lastResult = null; resetChapter(); log(`パワーアップ「${THEORIES.find(theory => theory.id === id).name}」を選びました。`); render(); }
 function notice(text) { log(text); render(); }
 function fallbackObservations() {
   const today = new Date().toISOString().slice(0, 10); const roll = random(hash(today)); return shuffle([...LOCATIONS]).slice(0, 7).map(([city, region]) => ({ city, region, code: Math.floor(roll() * 100), wind: 4 + Math.floor(roll() * 39), temp: -8 + Math.floor(roll() * 36) }));
@@ -100,6 +100,23 @@ function render() {
   $("#source-note").textContent = state.source || "遠方の観測所へ照会中…";
   $("#cards").innerHTML = state.hand.map(card => { const type = TYPES[card.type]; const selected = state.selected.has(card.id); return `<button class="card ${selected ? "selected" : ""}" data-card="${card.id}" type="button" ${state.phase !== "playing" ? "disabled" : ""}><span class="card-top"><span class="weather">${type.icon}</span><span class="value">強度 ${card.intensity}</span></span><span class="city">${card.city}</span><span class="meta">${type.name} ・ ${card.region} ・ ${card.temp}℃</span>${card.wind ? '<span class="tag">風の印</span>' : ""}</button>`; }).join("") || "<p>観測札を補充しています。</p>";
   $("#selection-note").textContent = state.phase === "loading" ? "今日の手札を取得しています。" : finished ? (state.phase === "won" ? "クリア！ 全3ラウンドを突破しました。遠方の空を更新して、もう一度遊べます。" : "今回は失敗です。「遠方の観測を更新」で最初から挑戦できます。") : `${state.selected.size} 枚を選択中。最大5枚まで。選んだら「この手で得点する」。`;
+  const selected = selectedCards();
+  $("#play-tray").innerHTML = selected.length ? selected.map(card => `<span class="tray-card">${TYPES[card.type].icon} ${card.city} / 強度${card.intensity}</span>`).join("") : '<span class="tray-empty">選んだカードはここに並びます</span>';
+  const banner = $("#result-banner");
+  banner.classList.toggle("hidden", !state.lastResult);
+  banner.innerHTML = state.lastResult ? `<strong>+${state.lastResult.score} 点！</strong> 「${state.lastResult.name}」が成立。あと ${Math.max(0, state.target)} 点です。` : "";
+  const task = $("#current-task");
+  if (state.phase === "loading") task.textContent = "いまやること：遠方の天気をカードにしています。";
+  else if (state.phase === "theory") task.textContent = "いまやること：次のラウンドで使うパワーアップを一つ選んでください。";
+  else if (finished) task.textContent = state.phase === "won" ? "全ラウンドクリア！「遠方の観測を更新」で新しい天気の手札を作れます。" : "ラウンド失敗です。「遠方の観測を更新」で新しい手札に替えて再挑戦できます。";
+  else if (state.lastResult) task.textContent = `いまやること：次の手を作ってください。目標まであと ${Math.max(0, state.target)} 点です。`;
+  else if (!selected.length) task.textContent = "いまやること：下のカードを1〜5枚クリックしてください。";
+  else task.textContent = "いまやること：右の「今回の手」で得点を確認し、「この手で得点する」を押してください。";
+  const pick = $("#step-pick"), check = $("#step-check"), score = $("#step-score");
+  [pick, check, score].forEach(step => step.className = "flow-step");
+  if (selected.length) { pick.classList.add("done"); check.classList.add("active"); }
+  else if (state.lastResult) { pick.classList.add("done"); check.classList.add("done"); score.classList.add("active"); }
+  else pick.classList.add("active");
   $("#submit").disabled = state.phase !== "playing"; $("#discard").disabled = state.phase !== "playing" || !state.discards; $("#discards").textContent = `(${state.discards})`;
   $("#formula-title").textContent = formula.name; $("#formula-copy").textContent = formula.copy; $("#formula-score").textContent = formula.score; $("#formula-parts").innerHTML = formula.parts.map(part => `<li>${part}</li>`).join("");
   $("#log").innerHTML = state.log.map(entry => `<li>${entry}</li>`).join("");
@@ -107,7 +124,7 @@ function render() {
   if (state.phase === "theory") { const pool = shuffle(THEORIES.filter(theory => !state.theories.includes(theory.id))).slice(0, 3); $("#theory-title").textContent = `ラウンド ${state.chapter} クリア！`; $("#theory-copy").textContent = "次のラウンドは必要な点が増えます。パワーアップを一つ選んでください。"; $("#theory-options").innerHTML = pool.map(theory => `<button class="theory-option" data-theory="${theory.id}" type="button"><strong>${theory.name}</strong><span>${theory.text}</span></button>`).join(""); }
 }
 document.addEventListener("click", event => {
-  const card = event.target.closest("[data-card]"); if (card && state.phase === "playing") { const id = card.dataset.card; if (state.selected.has(id)) state.selected.delete(id); else if (state.selected.size < 5) state.selected.add(id); else return notice("一度に出せるカードは5枚までです。"); render(); }
+  const card = event.target.closest("[data-card]"); if (card && state.phase === "playing") { const id = card.dataset.card; if (state.selected.has(id)) state.selected.delete(id); else if (state.selected.size < 5) state.selected.add(id); else return notice("一度に出せるカードは5枚までです。"); state.lastResult = null; render(); }
   const theory = event.target.closest("[data-theory]"); if (theory) chooseTheory(theory.dataset.theory);
   if (event.target.closest("#submit")) submit(); if (event.target.closest("#discard")) discard(); if (event.target.closest("#refresh")) loadReality();
 });

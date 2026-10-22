@@ -26,6 +26,14 @@
         <p><strong>これはポーカーのようなゲームです。</strong>ランダムに選ばれた世界各地の実際の天気が、今日だけの手札になります。最大5枚を選んでカードを出し、同じ天気・連続する強さ・異なる地域を組み合わせて得点を作ります。<strong>4回カードを出すまでに、目標点へ届けば次のラウンドです。</strong>全3ラウンドをクリアすれば勝ちです。</p>
       </section>
 
+      <section class="turn-flow panel" aria-label="このゲームの流れ">
+        <div id="step-pick" class="flow-step active"><span>1</span><strong>手札を選ぶ</strong><small>カードを1〜5枚クリック</small></div>
+        <div class="flow-arrow" aria-hidden="true">→</div>
+        <div id="step-check" class="flow-step"><span>2</span><strong>役と点数を見る</strong><small>右の予想点を確認</small></div>
+        <div class="flow-arrow" aria-hidden="true">→</div>
+        <div id="step-score" class="flow-step"><span>3</span><strong>カードを出す</strong><small>目標点まで繰り返す</small></div>
+      </section>
+
       <section class="status-grid" aria-label="任務の状態">
         <div class="stat panel"><span>ラウンド</span><strong id="chapter">読み込み中</strong></div>
         <div class="stat panel"><span>あと何点必要？</span><strong id="distortion">—</strong></div>
@@ -39,8 +47,11 @@
             <div><p class="eyebrow">YOUR HAND</p><h2 id="hand-title">今日の観測</h2></div>
             <p id="source-note" class="source-note">遠方の観測所へ照会中…</p>
           </div>
+          <p id="current-task" class="current-task">いまやること：手札を1〜5枚クリックしてください。</p>
           <div id="cards" class="cards" aria-live="polite"></div>
           <p id="selection-note" class="selection-note">カードを1〜5枚選んでください。</p>
+          <div id="play-tray" class="play-tray" aria-live="polite"></div>
+          <div id="result-banner" class="result-banner hidden" aria-live="polite"></div>
           <div class="actions">
             <button id="submit" class="primary-button" type="button">この手で得点する</button>
             <button id="discard" class="outline-button" type="button">選んだカードを交換 <span id="discards">(2)</span></button>
