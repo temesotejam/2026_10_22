@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#121321" />
     <title>封鎖線</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .node .you { position:absolute; bottom:calc(100% + 7px); left:50%; transform:translateX(-50%); padding:3px 7px; border:1px solid var(--blue); border-radius:99px; background:#102d3b; color:#c7f4ff; font-size:.65rem; font-weight:900; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+      .node .you::after { content:""; position:absolute; top:100%; left:50%; border:5px solid transparent; border-top-color:var(--blue); transform:translateX(-50%); }
+    </style>
   </head>
   <body>
     <main class="shell">
@@ -44,7 +48,7 @@
           <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。侵入者がいれば捕まえる。</span></button>
           <button data-mode="scan" class="action" type="button"><strong>スキャン</strong><span>任意の地点を調べ、侵入者までの距離を知る。</span></button>
           <button data-mode="block" class="action" type="button"><strong>封鎖</strong><span>一地点を2手のあいだ閉鎖する。</span></button>
-          <div class="legend"><span>● あなた</span><span>◌ 痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
+          <div class="legend"><span>● あなた（現在地）</span><span>◌ 痕跡</span><span>✦ 起動済み</span><span>▣ 封鎖中</span><span>◇ 中継点</span></div>
           <div class="log-box"><p class="eyebrow">INTELLIGENCE LOG</p><ul id="log"></ul></div>
         </aside>
       </section>
