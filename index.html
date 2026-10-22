@@ -13,7 +13,7 @@
         <div>
           <p class="eyebrow">A DAILY REALITY-FED CARD ROGUELITE</p>
           <h1>遠方予報局</h1>
-          <p class="lede">実在する遠方の空を手札にして、崩れた天候譜を完成させる。</p>
+          <p class="lede">実在する遠方の空を手札にして遊ぶ、ポーカー風のカードゲーム。</p>
         </div>
         <button id="refresh" class="outline-button" type="button">遠方の観測を更新</button>
       </header>
@@ -21,16 +21,16 @@
       <section class="rule panel" aria-labelledby="purpose">
         <div>
           <p class="eyebrow">WHAT YOU DO</p>
-          <h2 id="purpose">カードを組み、歪みをゼロにする。</h2>
+          <h2 id="purpose">良い組み合わせを出して、目標点を達成する。</h2>
         </div>
-        <p>ランダムに選ばれた世界各地の<strong>実際の天気</strong>が、今日だけの観測カードになります。最大5枚を選んで「観測式」を提出し、同じ空模様・連続した強度・異なる地域を組み合わせて大きな得点を作ってください。提出回数が尽きる前に、その章の歪みをゼロにすれば勝ちです。</p>
+        <p><strong>これはポーカーのようなゲームです。</strong>ランダムに選ばれた世界各地の実際の天気が、今日だけの手札になります。最大5枚を選んでカードを出し、同じ天気・連続する強さ・異なる地域を組み合わせて得点を作ります。<strong>4回カードを出すまでに、目標点へ届けば次のラウンドです。</strong>全3ラウンドをクリアすれば勝ちです。</p>
       </section>
 
       <section class="status-grid" aria-label="任務の状態">
-        <div class="stat panel"><span>章</span><strong id="chapter">読み込み中</strong></div>
-        <div class="stat panel"><span>残る歪み</span><strong id="distortion">—</strong></div>
-        <div class="stat panel"><span>提出できる回数</span><strong id="papers">—</strong></div>
-        <div class="stat panel"><span>獲得した記録</span><strong id="score">0</strong></div>
+        <div class="stat panel"><span>ラウンド</span><strong id="chapter">読み込み中</strong></div>
+        <div class="stat panel"><span>あと何点必要？</span><strong id="distortion">—</strong></div>
+        <div class="stat panel"><span>あと何回出せる？</span><strong id="papers">—</strong></div>
+        <div class="stat panel"><span>合計得点</span><strong id="score">0</strong></div>
       </section>
 
       <section class="play-grid">
@@ -42,16 +42,16 @@
           <div id="cards" class="cards" aria-live="polite"></div>
           <p id="selection-note" class="selection-note">カードを1〜5枚選んでください。</p>
           <div class="actions">
-            <button id="submit" class="primary-button" type="button">観測式を提出</button>
-            <button id="discard" class="outline-button" type="button">選んだ札を引き直す <span id="discards">(2)</span></button>
+            <button id="submit" class="primary-button" type="button">この手で得点する</button>
+            <button id="discard" class="outline-button" type="button">選んだカードを交換 <span id="discards">(2)</span></button>
           </div>
         </section>
 
         <aside class="side-stack">
           <section class="formula panel" aria-labelledby="formula-title">
-            <p class="eyebrow">FORMULA PREVIEW</p>
-            <h2 id="formula-title">まだ式はありません</h2>
-            <p id="formula-copy">選んだカードの組み合わせで得点が決まります。</p>
+            <p class="eyebrow">SCORE PREVIEW</p>
+            <h2 id="formula-title">まだ手を選んでいません</h2>
+            <p id="formula-copy">選んだカードの組み合わせと得点が、ここに出ます。</p>
             <div id="formula-score" class="formula-score">0</div>
             <ul id="formula-parts" class="formula-parts"></ul>
           </section>
@@ -63,19 +63,19 @@
       </section>
 
       <section id="theory-panel" class="theory panel hidden" aria-live="polite">
-        <p class="eyebrow">CHOOSE A THEORY</p>
-        <h2 id="theory-title">次の章へ進めます</h2>
-        <p id="theory-copy">一つだけ恒久的な理論を採用してください。</p>
+        <p class="eyebrow">CHOOSE A POWER-UP</p>
+        <h2 id="theory-title">ラウンドクリア！</h2>
+        <p id="theory-copy">次のラウンドで使えるパワーアップを一つ選んでください。</p>
         <div id="theory-options" class="theory-options"></div>
       </section>
 
       <section class="how panel">
         <p class="eyebrow">COMBINATION GUIDE</p>
         <div class="guide-grid">
-          <p><strong>同調</strong><br />同じ空模様を重ねる。2枚から得点が上がる。</p>
-          <p><strong>等圧線</strong><br />強度が連続する3枚以上をつなぐ。</p>
-          <p><strong>地平線</strong><br />3地域以上の観測を同じ式に入れる。</p>
-          <p><strong>前線</strong><br />4種類以上の空模様を混ぜる。</p>
+          <p><strong>同じ天気</strong><br />同じ空模様を2枚以上。枚数が多いほど高得点。</p>
+          <p><strong>強さが連番</strong><br />強度が連続する3枚以上。例：2・3・4。</p>
+          <p><strong>3地域以上</strong><br />3地域以上のカードを同じ手に入れる。</p>
+          <p><strong>4種類以上の天気</strong><br />晴れ・雲・雨・雪などを4種類以上混ぜる。</p>
         </div>
         <p class="fine-print">位置情報は使いません。「遠方の観測を更新」は、世界の候補都市からランダムに選ばれた公開天気だけを取得します。通信できないときは、日付をもとにした代替観測で続けられます。</p>
       </section>
