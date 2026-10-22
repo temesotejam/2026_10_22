@@ -1,131 +1,135 @@
 "use strict";
 
-const LOCATIONS = [
-  ["レイキャビク", "北の海", 64.1466, -21.9426], ["ナイロビ", "東アフリカ", -1.2864, 36.8172],
-  ["バルパライソ", "南米西岸", -33.0472, -71.6127], ["ウランバートル", "中央アジア", 47.8864, 106.9057],
-  ["ホバート", "南の島", -42.8821, 147.3272], ["リスボン", "大西洋岸", 38.7223, -9.1393],
-  ["バンクーバー", "北太平洋", 49.2827, -123.1207], ["ケープタウン", "南アフリカ", -33.9249, 18.4241],
-  ["モンゴメリー", "北米内陸", 32.3668, -86.3], ["釧路", "北西太平洋", 42.9849, 144.3814],
-  ["シドニー", "珊瑚海", -33.8688, 151.2093], ["アンカレッジ", "北極圏", 61.2181, -149.9003],
-];
-const TYPES = {
-  light: { name: "晴れ", icon: "☼" }, cloud: { name: "雲", icon: "☁" }, fog: { name: "霧", icon: "≋" },
-  rain: { name: "雨", icon: "☂" }, snow: { name: "雪", icon: "❄" }, storm: { name: "嵐", icon: "ϟ" },
-};
-const THEORIES = [
-  { id: "wind", name: "偏西風の理論", text: "風の印があるカードは、基礎点が +6。" },
-  { id: "horizon", name: "地平線の理論", text: "地平線（3地域以上）の加点が +18。" },
-  { id: "resonance", name: "反復の理論", text: "同調の加点が +16。" },
-  { id: "pressure", name: "等圧の理論", text: "等圧線（連続強度）の加点が +16。" },
-  { id: "water", name: "水文学の理論", text: "雨・雪・霧のカードは、基礎点が +5。" },
-];
-const state = { deck: [], hand: [], discard: [], selected: new Set(), chapter: 1, target: 0, papers: 4, discards: 2, score: 0, theories: [], phase: "loading", log: [], source: "", lastResult: null };
+const NODES = ["港", "市場", "塔", "駅", "公園", "図書館", "病院", "劇場", "工場", "広場", "研究所", "屋上"];
+const state = { player: 8, bot: null, turns: 10, blocks: 2, mode: "move", blocked: new Map(), traces: new Map(), activated: new Set(), scan: null, pulse: null, pulses: 0, status: "playing", log: [], event: "まず「移動」を選び、隣の地点をクリックしてください。" };
 const $ = selector => document.querySelector(selector);
-const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+const neighbors = node => [node - 4, node + 4, node % 4 ? node - 1 : -1, node % 4 !== 3 ? node + 1 : -1].filter(value => value >= 0 && value < 12);
 const hash = text => [...text].reduce((value, char) => ((value << 5) - value + char.charCodeAt(0)) | 0, 2166136261) >>> 0;
-const random = seed => () => { let value = seed += 0x6d2b79f5; value = Math.imul(value ^ value >>> 15, value | 1); value ^= value + Math.imul(value ^ value >>> 7, value | 61); return ((value ^ value >>> 14) >>> 0) / 4294967296; };
-function shuffle(array) { for (let index = array.length - 1; index > 0; index -= 1) { const pick = Math.floor(Math.random() * (index + 1)); [array[index], array[pick]] = [array[pick], array[index]]; } return array; }
-function log(text) { state.log.unshift(text); state.log = state.log.slice(0, 7); }
-function weatherType(code) { if (code <= 1) return "light"; if (code <= 3) return "cloud"; if (code <= 48) return "fog"; if (code <= 67) return "rain"; if (code <= 77) return "snow"; return "storm"; }
-function makeCard(observation, copy) {
-  const type = weatherType(observation.code);
-  const intensity = clamp(1 + Math.floor(observation.wind / 9) + (type === "storm" ? 2 : 0) + (type === "snow" ? 1 : 0), 1, 6);
-  return { id: `${observation.city}-${copy}-${Math.random().toString(36).slice(2)}`, city: observation.city, region: observation.region, type, intensity, wind: observation.wind >= 18, temp: Math.round(observation.temp) };
+const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+const icon = node => ["⚓", "◈", "▴", "↟", "♣", "▤", "✚", "◌", "▦", "✧", "⌬", "⌂"][node];
+function addLog(text) { state.log.unshift(text); state.log = state.log.slice(0, 7); }
+function fetchJson(url) { return fetch(url, { headers: { Accept: "application/json" } }).then(response => { if (!response.ok) throw new Error("feed unavailable"); return response.json(); }); }
+function fallbackPulse() { const now = new Date(); const base = hash(`${now.toISOString().slice(0, 13)}-${now.getUTCMinutes()}`); return { tech: base % 8, attention: (base >>> 3) % 100, earth: (base >>> 8) % 18, clock: now.getUTCMinutes(), live: false }; }
+function describePulse(pulse) {
+  const urgency = clamp(pulse.tech * 10 + Math.floor(pulse.earth * 1.5), 0, 100);
+  const deceptive = pulse.attention >= 55;
+  return { ...pulse, urgency, deceptive, pace: urgency >= 74 ? 2 : 1, tags: [`技術活動 ${pulse.tech}`, `話題の熱 ${pulse.attention}`, `地球信号 ${pulse.earth}`] };
 }
-function cardsFromObservations(observations) { return shuffle(observations.flatMap(observation => [makeCard(observation, 1), makeCard(observation, 2)])); }
-function draw() { while (state.hand.length < 8 && (state.deck.length || state.discard.length)) { if (!state.deck.length) state.deck = shuffle(state.discard.splice(0)); state.hand.push(state.deck.pop()); } }
-function chapterTarget() { return [105, 160, 230][state.chapter - 1] || 230; }
-function resetChapter() { state.target = chapterTarget(); state.papers = 4; state.discards = 2; state.selected.clear(); state.deck.push(...state.hand.splice(0), ...state.discard.splice(0)); shuffle(state.deck); draw(); }
-function start(observations, source) { state.deck = cardsFromObservations(observations); state.hand = []; state.discard = []; state.selected.clear(); state.chapter = 1; state.score = 0; state.theories = []; state.phase = "playing"; state.log = ["今日の手札を配りました。良い組み合わせを探してください。"]; state.source = source; state.lastResult = null; resetChapter(); render(); }
-function selectedCards() { return state.hand.filter(card => state.selected.has(card.id)); }
-function longestRun(values) { const unique = [...new Set(values)].sort((a, b) => a - b); let best = 1; let current = 1; for (let index = 1; index < unique.length; index += 1) { current = unique[index] === unique[index - 1] + 1 ? current + 1 : 1; best = Math.max(best, current); } return best; }
-function calculate(cards) {
-  if (!cards.length) return { score: 0, name: "まだ手を選んでいません", copy: "カードを1〜5枚選んでください。", parts: [] };
-  let base = cards.reduce((total, card) => total + card.intensity * 5, 0); const parts = [`カードの基本点 ${base}`];
-  const groups = Object.values(cards.reduce((all, card) => { all[card.type] = (all[card.type] || 0) + 1; return all; }, {})); const same = Math.max(...groups);
-  const regions = new Set(cards.map(card => card.region)).size; const types = new Set(cards.map(card => card.type)).size; const run = longestRun(cards.map(card => card.intensity)); let bonus = 0; const names = [];
-  if (same >= 2) { const points = [0, 0, 10, 28, 51, 80][same]; bonus += points; names.push("同じ天気"); parts.push(`同じ天気 +${points}`); }
-  if (run >= 3) { const points = 18 + (run - 3) * 11; bonus += points; names.push("強さが連番"); parts.push(`強さが連番 +${points}`); }
-  if (regions >= 3) { const points = 15 + (regions - 3) * 8; bonus += points; names.push("3地域以上"); parts.push(`3地域以上 +${points}`); }
-  if (types >= 4) { const points = 27 + (types - 4) * 12; bonus += points; names.push("4種類の天気"); parts.push(`4種類の天気 +${points}`); }
-  state.theories.forEach(theory => {
-    let points = 0;
-    if (theory === "wind") points = cards.filter(card => card.wind).length * 6;
-    if (theory === "water") points = cards.filter(card => ["rain", "snow", "fog"].includes(card.type)).length * 5;
-    if (theory === "horizon" && regions >= 3) points = 18;
-    if (theory === "resonance" && same >= 2) points = 16;
-    if (theory === "pressure" && run >= 3) points = 16;
-    if (points) { bonus += points; parts.push(`採用理論 +${points}`); }
-  });
-  const score = base + bonus; return { score, name: names.length ? names.join(" ＋ ") : "カードを一枚だけ出す", copy: names.length ? "この組み合わせでボーナスが発生します。" : "ボーナスなしです。天気・強さ・地域を組み合わせてください。", parts };
-}
-function submit() {
-  if (state.phase !== "playing") return; const cards = selectedCards(); if (!cards.length) return notice("まずカードを選んでください。");
-  const result = calculate(cards); state.lastResult = result; state.target -= result.score; state.score += result.score; state.papers -= 1; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.discard.push(...cards); state.selected.clear();
-  log(`「${result.name}」で ${result.score} 点。あと ${Math.max(0, state.target)} 点です。`); draw();
-  if (state.target <= 0) return completeChapter(); if (state.papers <= 0) { state.phase = "lost"; log("出せる回数を使い切りました。最初からもう一度挑戦できます。"); return render(); } render();
-}
-function discard() {
-  if (state.phase !== "playing") return; const cards = selectedCards(); if (!cards.length) return notice("引き直すカードを選んでください。"); if (!state.discards) return notice("この章では、もう引き直せません。");
-  state.discards -= 1; state.lastResult = null; state.hand = state.hand.filter(card => !state.selected.has(card.id)); state.deck.push(...cards); shuffle(state.deck); state.selected.clear(); draw(); log(`${cards.length} 枚を遠方の束へ戻し、引き直しました。`); render();
-}
-function completeChapter() {
-  if (state.chapter === 3) { state.phase = "won"; log("全3ラウンドをクリアしました。今日の遠方の空を、最高得点の手に変えました。"); return render(); }
-  state.phase = "theory"; log(`ラウンド ${state.chapter} クリア。次のラウンドのパワーアップを選びます。`); render();
-}
-function chooseTheory(id) { state.theories.push(id); state.chapter += 1; state.phase = "playing"; state.lastResult = null; resetChapter(); log(`パワーアップ「${THEORIES.find(theory => theory.id === id).name}」を選びました。`); render(); }
-function notice(text) { log(text); render(); }
-function fallbackObservations() {
-  const today = new Date().toISOString().slice(0, 10); const roll = random(hash(today)); return shuffle([...LOCATIONS]).slice(0, 7).map(([city, region]) => ({ city, region, code: Math.floor(roll() * 100), wind: 4 + Math.floor(roll() * 39), temp: -8 + Math.floor(roll() * 36) }));
-}
-async function loadReality() {
-  state.phase = "loading"; render(); $("#refresh").disabled = true; $("#refresh").textContent = "遠方の空を照会中…";
-  const locations = shuffle([...LOCATIONS]).slice(0, 7);
+async function refreshPulse(initial = false) {
+  const fallback = describePulse(fallbackPulse());
+  if (initial && !state.pulse) { state.pulse = fallback; render(); }
   try {
-    const results = await Promise.all(locations.map(async ([city, region, latitude, longitude]) => {
-      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=weather_code,wind_speed_10m,temperature_2m&timezone=auto`);
-      if (!response.ok) throw new Error("observation failed"); const data = await response.json(); return { city, region, code: data.current.weather_code, wind: data.current.wind_speed_10m, temp: data.current.temperature_2m };
-    }));
-    start(results, "ランダムな7つの遠方観測所から、現在の公開天気を受信しました。");
-  } catch (error) {
-    start(fallbackObservations(), "遠方の天気を受信できないため、今日の日付から代替観測を編みました。");
-  } finally { $("#refresh").disabled = false; $("#refresh").textContent = "遠方の観測を更新"; }
+    const [github, topIds, quakes] = await Promise.all([
+      fetchJson("https://api.github.com/events?per_page=30"),
+      fetchJson("https://hacker-news.firebaseio.com/v0/topstories.json"),
+      fetchJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"),
+    ]);
+    const newsItems = await Promise.all(topIds.slice(0, 5).map(id => fetchJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)));
+    const tech = github.filter(event => ["PushEvent", "ReleaseEvent", "CreateEvent"].includes(event.type)).length;
+    const attention = clamp(Math.round(newsItems.reduce((sum, item) => sum + (item.score || 0), 0) / 10), 0, 99);
+    const earth = clamp(quakes.features.length, 0, 99);
+    state.pulse = describePulse({ tech, attention, earth, clock: new Date().getUTCMinutes(), live: true });
+  } catch (error) { state.pulse = fallback; }
+  state.pulses += 1;
+  if (state.bot) state.bot.pace = state.pulse.pace;
+  if (!initial) addLog(`世界パルスを更新。侵入者の行動速度は ${state.pulse.pace} です。`);
+  render();
 }
+function shortestPath(from, to) {
+  const queue = [[from]]; const seen = new Set([from]);
+  while (queue.length) {
+    const path = queue.shift(); const current = path[path.length - 1];
+    if (current === to) return path;
+    neighbors(current).filter(next => !seen.has(next) && !state.blocked.has(next)).forEach(next => { seen.add(next); queue.push([...path, next]); });
+  }
+  return null;
+}
+function createPlan() {
+  const pulse = state.pulse || describePulse(fallbackPulse());
+  const seed = hash(`${pulse.tech}-${pulse.attention}-${pulse.earth}-${pulse.clock}`);
+  const choices = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11];
+  const targets = []; let value = seed;
+  while (targets.length < 3) { value = (value * 1664525 + 1013904223) >>> 0; const choice = choices[value % choices.length]; if (!targets.includes(choice)) targets.push(choice); }
+  state.bot = { pos: 0, targets, index: 0, pace: pulse.pace };
+}
+function newGame() {
+  state.player = 8; state.turns = 10; state.blocks = 2; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.activated = new Set(); state.scan = null; state.status = "playing"; state.log = []; state.event = "侵入者は北西から入りました。痕跡を追ってください。";
+  createPlan(); addLog("作戦開始。侵入者は3地点の接続を試みています。"); render(); refreshPulse();
+}
+function distance(from, to) { const path = shortestPath(from, to); return path ? path.length - 1 : 99; }
+function canMove(node) { return neighbors(state.player).includes(node) && !state.blocked.has(node); }
+function decay() { for (const [node, time] of state.traces) { if (time <= 1) state.traces.delete(node); else state.traces.set(node, time - 1); } for (const [node, time] of state.blocked) { if (time <= 1) { state.blocked.delete(node); addLog(`${NODES[node]}の封鎖が解除されました。`); } else state.blocked.set(node, time - 1); } }
+function activateIfNeeded() {
+  const target = state.bot.targets[state.bot.index];
+  if (state.bot.pos !== target) return false;
+  state.activated.add(target); state.bot.index += 1; addLog(`侵入者が「${NODES[target]}」を起動しました。`); state.event = `遅れました。${NODES[target]}が起動済みです。残りの計画を止めてください。`;
+  if (state.bot.index === 3) finish(false, "侵入者が3地点の回線を完成させました。");
+  return true;
+}
+function botTurn() {
+  if (state.status !== "playing") return;
+  decay();
+  for (let step = 0; step < state.bot.pace && state.status === "playing"; step += 1) {
+    if (activateIfNeeded()) continue;
+    const target = state.bot.targets[state.bot.index]; const path = shortestPath(state.bot.pos, target);
+    if (!path || path.length < 2) { addLog("侵入者は封鎖を前に、別経路を探しています。"); break; }
+    const before = state.bot.pos; state.bot.pos = path[1]; state.traces.set(before, 3);
+    if (state.pulse.deceptive && (state.pulse.clock + state.turns + step) % 3 === 0) {
+      const fake = neighbors(before).find(node => node !== state.bot.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, 2);
+    }
+    if (state.bot.pos === state.player) return finish(false, "侵入者に張り込みを抜けられました。あなたは追跡を断たれます。");
+    activateIfNeeded();
+  }
+}
+function takeTurn() {
+  state.turns -= 1; state.scan = null; botTurn();
+  if (state.status === "playing" && state.turns <= 0) finish(false, "時間切れです。侵入者の回線は残りました。");
+  if (state.status === "playing" && state.turns % 2 === 0) refreshPulse();
+  render();
+}
+function selectNode(node) {
+  if (state.status !== "playing") return;
+  if (state.mode === "move") {
+    if (!canMove(node)) { state.event = "移動では、青い地点に隣接する地点だけを選べます。"; return render(); }
+    state.player = node; state.event = `${NODES[node]}へ移動しました。侵入者がいないか確認します。`;
+    if (state.player === state.bot.pos) return finish(true, `侵入者を${NODES[node]}で確保しました。`);
+    addLog(`${NODES[node]}へ移動。`); takeTurn();
+  }
+  if (state.mode === "scan") {
+    const steps = distance(node, state.bot.pos); state.scan = node; state.event = steps === 0 ? `${NODES[node]}に侵入者がいます！ 次の手で確保できます。` : `${NODES[node]}から侵入者まで、最短で ${steps} 地点です。`;
+    addLog(`${NODES[node]}をスキャン。距離 ${steps}。`); takeTurn();
+  }
+  if (state.mode === "block") {
+    if (!state.blocks) { state.event = "封鎖できる回数を使い切りました。"; return render(); }
+    if (node === state.player || state.activated.has(node)) { state.event = "ここは封鎖できません。未起動の別地点を選んでください。"; return render(); }
+    state.blocks -= 1; state.blocked.set(node, 2); state.event = `${NODES[node]}を2手のあいだ封鎖しました。`;
+    addLog(`${NODES[node]}を封鎖。`); takeTurn();
+  }
+}
+function finish(win, message) { state.status = win ? "won" : "lost"; state.event = message; addLog(message); render(); }
 function render() {
-  const finished = state.phase === "won" || state.phase === "lost"; const formula = calculate(selectedCards());
-  $("#chapter").textContent = state.phase === "loading" ? "読み込み中" : `${state.chapter} / 3`;
-  $("#distortion").textContent = state.phase === "loading" ? "—" : Math.max(0, state.target);
-  $("#papers").textContent = state.phase === "loading" ? "—" : state.papers;
-  $("#score").textContent = state.score;
-  $("#source-note").textContent = state.source || "遠方の観測所へ照会中…";
-  $("#cards").innerHTML = state.hand.map(card => { const type = TYPES[card.type]; const selected = state.selected.has(card.id); return `<button class="card ${selected ? "selected" : ""}" data-card="${card.id}" type="button" ${state.phase !== "playing" ? "disabled" : ""}><span class="card-top"><span class="weather">${type.icon}</span><span class="value">強度 ${card.intensity}</span></span><span class="city">${card.city}</span><span class="meta">${type.name} ・ ${card.region} ・ ${card.temp}℃</span>${card.wind ? '<span class="tag">風の印</span>' : ""}</button>`; }).join("") || "<p>観測札を補充しています。</p>";
-  $("#selection-note").textContent = state.phase === "loading" ? "今日の手札を取得しています。" : finished ? (state.phase === "won" ? "クリア！ 全3ラウンドを突破しました。遠方の空を更新して、もう一度遊べます。" : "今回は失敗です。「遠方の観測を更新」で最初から挑戦できます。") : `${state.selected.size} 枚を選択中。最大5枚まで。選んだら「この手で得点する」。`;
-  const selected = selectedCards();
-  $("#play-tray").innerHTML = selected.length ? selected.map(card => `<span class="tray-card">${TYPES[card.type].icon} ${card.city} / 強度${card.intensity}</span>`).join("") : '<span class="tray-empty">選んだカードはここに並びます</span>';
-  const banner = $("#result-banner");
-  banner.classList.toggle("hidden", !state.lastResult);
-  banner.innerHTML = state.lastResult ? `<strong>+${state.lastResult.score} 点！</strong> 「${state.lastResult.name}」が成立。あと ${Math.max(0, state.target)} 点です。` : "";
-  const task = $("#current-task");
-  if (state.phase === "loading") task.textContent = "いまやること：遠方の天気をカードにしています。";
-  else if (state.phase === "theory") task.textContent = "いまやること：次のラウンドで使うパワーアップを一つ選んでください。";
-  else if (finished) task.textContent = state.phase === "won" ? "全ラウンドクリア！「遠方の観測を更新」で新しい天気の手札を作れます。" : "ラウンド失敗です。「遠方の観測を更新」で新しい手札に替えて再挑戦できます。";
-  else if (state.lastResult) task.textContent = `いまやること：次の手を作ってください。目標まであと ${Math.max(0, state.target)} 点です。`;
-  else if (!selected.length) task.textContent = "いまやること：下のカードを1〜5枚クリックしてください。";
-  else task.textContent = "いまやること：右の「今回の手」で得点を確認し、「この手で得点する」を押してください。";
-  const pick = $("#step-pick"), check = $("#step-check"), score = $("#step-score");
-  [pick, check, score].forEach(step => step.className = "flow-step");
-  if (selected.length) { pick.classList.add("done"); check.classList.add("active"); }
-  else if (state.lastResult) { pick.classList.add("done"); check.classList.add("done"); score.classList.add("active"); }
-  else pick.classList.add("active");
-  $("#submit").disabled = state.phase !== "playing"; $("#discard").disabled = state.phase !== "playing" || !state.discards; $("#discards").textContent = `(${state.discards})`;
-  $("#formula-title").textContent = formula.name; $("#formula-copy").textContent = formula.copy; $("#formula-score").textContent = formula.score; $("#formula-parts").innerHTML = formula.parts.map(part => `<li>${part}</li>`).join("");
-  $("#log").innerHTML = state.log.map(entry => `<li>${entry}</li>`).join("");
-  const theoryPanel = $("#theory-panel"); theoryPanel.classList.toggle("hidden", state.phase !== "theory");
-  if (state.phase === "theory") { const pool = shuffle(THEORIES.filter(theory => !state.theories.includes(theory.id))).slice(0, 3); $("#theory-title").textContent = `ラウンド ${state.chapter} クリア！`; $("#theory-copy").textContent = "次のラウンドは必要な点が増えます。パワーアップを一つ選んでください。"; $("#theory-options").innerHTML = pool.map(theory => `<button class="theory-option" data-theory="${theory.id}" type="button"><strong>${theory.name}</strong><span>${theory.text}</span></button>`).join(""); }
+  const pulse = state.pulse || describePulse(fallbackPulse());
+  $("#turns").textContent = state.turns; $("#progress").textContent = `${state.bot?.index || 0} / 3`; $("#blocks").textContent = state.blocks; $("#pulse-count").textContent = state.pulses;
+  $("#pulse-title").textContent = pulse.live ? "公開フィードを受信中：侵入者の作戦が変化" : "代替パルスで作戦を維持中";
+  $("#pulse-copy").textContent = `技術活動と話題の熱は迂回・偽痕跡に、地球信号は侵入者の行動速度に反映されます。次回更新まで最大60秒。`;
+  $("#pulse-tags").innerHTML = pulse.tags.map(tag => `<span>${tag}</span>`).join(""); $("#pulse-dot").classList.toggle("ready", pulse.live);
+  $("#task").textContent = state.status !== "playing" ? "作戦終了。結果を確認してください。" : state.mode === "move" ? "青い地点へ移動して、侵入者の痕跡を追ってください。" : state.mode === "scan" ? "調べたい地点をクリックしてください。距離が分かります。" : "封鎖したい未起動の地点をクリックしてください。";
+  $("#event").textContent = state.event; $("#log").innerHTML = state.log.map(item => `<li>${item}</li>`).join("");
+  document.querySelectorAll("[data-mode]").forEach(button => { button.classList.toggle("active", button.dataset.mode === state.mode); button.disabled = state.status !== "playing" || (button.dataset.mode === "block" && !state.blocks); });
+  const board = $("#board"); board.innerHTML = "";
+  NODES.forEach((name, node) => {
+    const button = document.createElement("button"); button.type = "button"; button.className = "node"; button.dataset.node = node; button.disabled = state.status !== "playing";
+    if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.activated.has(node)) button.classList.add("activated"); if (state.scan === node) button.classList.add("scan-result");
+    const trace = state.traces.has(node) ? '<span class="trace">◌</span>' : ""; const target = state.activated.has(node) ? '<span class="target">起動済み</span>' : "";
+    button.innerHTML = `<span class="name">${name}</span><span class="symbol">${node === state.player ? "●" : state.blocked.has(node) ? "▣" : state.activated.has(node) ? "✦" : icon(node)}</span>${trace}${target}`; board.append(button);
+  });
+  const result = $("#result"); result.classList.toggle("hidden", state.status === "playing");
+  if (state.status !== "playing") result.innerHTML = `<h2>${state.status === "won" ? "作戦成功" : "作戦失敗"}</h2><p>${state.event}</p><button id="result-new" class="outline" type="button">別の作戦を開始</button>`;
 }
 document.addEventListener("click", event => {
-  const card = event.target.closest("[data-card]"); if (card && state.phase === "playing") { const id = card.dataset.card; if (state.selected.has(id)) state.selected.delete(id); else if (state.selected.size < 5) state.selected.add(id); else return notice("一度に出せるカードは5枚までです。"); state.lastResult = null; render(); }
-  const theory = event.target.closest("[data-theory]"); if (theory) chooseTheory(theory.dataset.theory);
-  if (event.target.closest("#submit")) submit(); if (event.target.closest("#discard")) discard(); if (event.target.closest("#refresh")) loadReality();
+  const mode = event.target.closest("[data-mode]"); if (mode && state.status === "playing") { state.mode = mode.dataset.mode; state.event = state.mode === "move" ? "隣の地点を選んで移動してください。" : state.mode === "scan" ? "任意の地点を選び、侵入者までの距離を調べます。" : "封鎖したい地点を選んでください。"; render(); }
+  const node = event.target.closest("[data-node]"); if (node) selectNode(Number(node.dataset.node));
+  if (event.target.closest("#new-game") || event.target.closest("#result-new")) newGame();
 });
-loadReality();
+setInterval(() => refreshPulse(), 60000);
+state.pulse = describePulse(fallbackPulse()); newGame();
