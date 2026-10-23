@@ -2,7 +2,7 @@
 
 const NODES = ["港", "市場", "塔", "駅", "公園", "図書館", "病院", "劇場", "工場", "広場", "研究所", "屋上"];
 const MAP_POINTS = [[9, 18], [32, 12], [60, 18], [87, 13], [19, 42], [43, 35], [67, 42], [88, 34], [11, 73], [38, 78], [66, 68], [89, 76]];
-const state = { player: 8, editor: null, turns: 14, blocks: 2, evidence: 0, mode: "move", blocked: new Map(), traces: new Map(), altered: new Set(), rebutted: new Set(), scan: null, pulse: null, status: "playing", log: [], event: "" };
+const state = { player: 8, editor: null, turns: 0, blocks: 2, evidence: 0, mode: "move", blocked: new Map(), traces: new Map(), altered: new Set(), rebutted: new Set(), scan: null, pulse: null, status: "playing", log: [], event: "" };
 const $ = selector => document.querySelector(selector);
 const neighbors = node => [node - 4, node + 4, node % 4 ? node - 1 : -1, node % 4 !== 3 ? node + 1 : -1].filter(value => value >= 0 && value < 12);
 const hash = text => [...text].reduce((value, char) => ((value << 5) - value + char.charCodeAt(0)) | 0, 2166136261) >>> 0;
@@ -58,8 +58,14 @@ function setAlarm(target) {
   near.sort((a, b) => hash(`${state.pulse.clock}-${a}-${state.turns}`) - hash(`${state.pulse.clock}-${b}-${state.turns}`));
   state.editor.candidates = [target, ...near.slice(0, 2)]; state.editor.verified = false;
 }
+function advanceTarget() {
+  for (let attempt = 0; attempt < state.editor.targets.length; attempt += 1) {
+    state.editor.index = (state.editor.index + 1) % state.editor.targets.length;
+    if (!state.altered.has(state.editor.targets[state.editor.index])) return;
+  }
+}
 function newGame() {
-  state.player = 8; state.turns = 14; state.blocks = 2; state.evidence = 0; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.altered = new Set(); state.rebutted = new Set(); state.scan = null; state.status = "playing"; state.log = [];
+  state.player = 8; state.turns = 0; state.blocks = 2; state.evidence = 0; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.altered = new Set(); state.rebutted = new Set(); state.scan = null; state.status = "playing"; state.log = [];
   createPlan(); state.traces.set(state.editor.pos, { ttl: 3, age: 0 }); state.event = "あなたは「工場」にいます。追跡なら「公園」か「広場」へ。新しい痕跡を照合すれば、反証と確保に使える証拠が得られます。"; addLog("調査開始。改竄者は5つの候補から記録を書き換えようとしています。"); render(); refreshPulse();
 }
 function canMove(node) { return neighbors(state.player).includes(node) && !state.blocked.has(node); }
@@ -78,9 +84,9 @@ function alterRecord() {
   }
   state.editor.charge += 1;
   if (state.editor.charge < 2) { state.event = `改竄者が「${NODES[target]}」の記録を書き換え中です（準備 ${state.editor.charge} / 2）。`; addLog(`${NODES[target]}で改竄準備を確認。`); return true; }
-  state.altered.add(target); state.rebutted.delete(target); state.editor.index += 1; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
+  state.altered.add(target); state.rebutted.delete(target); state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
   if (state.altered.size >= 3) finish(false, "3つの記録が書き換えられ、都市の履歴が確定してしまいました。");
-  if (state.status === "playing" && state.editor.index >= state.editor.targets.length) finish(true, "改竄者の候補が尽きました。残った記録を守り切りました。");
+  if (state.status === "playing") advanceTarget();
   return true;
 }
 function editorTurn() {
@@ -107,8 +113,7 @@ function editorTurn() {
   }
 }
 function takeTurn() {
-  state.turns -= 1; editorTurn();
-  if (state.status === "playing" && state.turns <= 0) finish(false, "時間切れです。改竄者の狙いを止められませんでした。");
+  state.turns += 1; editorTurn();
   if (state.status === "playing" && state.turns % 2 === 0) refreshPulse();
   render();
 }
