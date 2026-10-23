@@ -51,7 +51,7 @@ function createPlan() {
   const seed = hash(`${pulse.tech}-${pulse.attention}-${pulse.earth}-${pulse.clock}`);
   const choices = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11]; const targets = []; let value = seed;
   while (targets.length < 5) { value = (value * 1664525 + 1013904223) >>> 0; const choice = choices[value % choices.length]; if (!targets.includes(choice)) targets.push(choice); }
-  state.editor = { pos: 0, targets, index: 0, pace: pulse.pace, charge: 0, candidates: [], verified: false };
+  state.editor = { pos: 0, targets, index: 0, pace: pulse.pace, charge: 0, candidates: [], verified: false, heat: 0 };
 }
 function setAlarm(target) {
   const near = [...new Set([...neighbors(target), ...neighbors(target).flatMap(neighbors)])].filter(node => node !== target);
@@ -63,6 +63,12 @@ function advanceTarget() {
     state.editor.index = (state.editor.index + 1) % state.editor.targets.length;
     if (!state.altered.has(state.editor.targets[state.editor.index])) return;
   }
+}
+function redirectEditor() {
+  state.editor.heat = (state.editor.heat || 0) + 1;
+  if (state.editor.heat < 2) return false;
+  advanceTarget(); state.editor.heat = 0; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false;
+  state.event = "改竄者が追跡を振り切り、別の記録を狙い始めました。痕跡を照合して行き先を探ってください。"; addLog("改竄者が狙いを切り替えた。"); return true;
 }
 function newGame() {
   state.player = 8; state.turns = 0; state.blocks = 2; state.evidence = 0; state.mode = "move"; state.blocked = new Map(); state.traces = new Map(); state.altered = new Set(); state.rebutted = new Set(); state.scan = null; state.status = "playing"; state.log = [];
@@ -80,11 +86,11 @@ function alterRecord() {
     const exits = neighbors(target).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
     state.editor.charge = 0;
     if (!exits.length) return finish(true, `${NODES[target]}を隔離し、逃げ場を失った改竄者を確保しました。`);
-    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.candidates = []; state.editor.verified = false; state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避しました。`; addLog(`${NODES[target]}の隔離で改竄者が退避。`); return true;
+    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.heat = 0; state.editor.candidates = []; state.editor.verified = false; state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避しました。`; addLog(`${NODES[target]}の隔離で改竄者が退避。`); return true;
   }
   state.editor.charge += 1;
   if (state.editor.charge < 2) { state.event = `改竄者が「${NODES[target]}」の記録を書き換え中です（準備 ${state.editor.charge} / 2）。`; addLog(`${NODES[target]}で改竄準備を確認。`); return true; }
-  state.altered.add(target); state.rebutted.delete(target); state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
+  state.altered.add(target); state.rebutted.delete(target); state.editor.charge = 0; state.editor.heat = 0; state.editor.candidates = []; state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
   if (state.altered.size >= 3) finish(false, "3つの記録が書き換えられ、都市の履歴が確定してしまいました。");
   if (state.status === "playing") advanceTarget();
   return true;
@@ -105,11 +111,11 @@ function editorTurn() {
     if (next === state.player) {
       const escapes = neighbors(before).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
       if (!escapes.length) return finish(true, `${NODES[before]}で改竄者を追い詰め、確保しました。`);
-      state.editor.pos = escapes[0]; state.editor.candidates = []; state.editor.verified = false; state.traces.set(before, { ttl: 3, age: 0 }); state.event = `改竄者はあなたを察知し、「${NODES[escapes[0]]}」へ逃げました。新しい痕跡を追ってください。`; addLog("改竄者が監査員を避けて逃走。"); break;
+      state.editor.pos = escapes[0]; state.editor.candidates = []; state.editor.verified = false; state.traces.set(before, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `改竄者はあなたを察知し、「${NODES[escapes[0]]}」へ逃げました。新しい痕跡を追ってください。`; addLog("改竄者が監査員を避けて逃走。"); } break;
     }
     state.editor.pos = next; state.traces.set(before, { ttl: 3, age: 0 });
     if (state.pulse.deceptive && (state.pulse.clock + state.turns + step) % 3 === 0) { const fake = neighbors(before).find(node => node !== state.editor.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, { ttl: 2, age: 0 }); }
-    if (state.editor.pos === target) { state.editor.charge = 0; setAlarm(target); state.event = "警報：3地点で異常反応を検知。照合して本物の改竄作業を特定してください。"; addLog("改竄作業の異常反応を3地点で検知。"); break; }
+    if (state.editor.pos === target) { state.editor.charge = 0; state.editor.heat = 0; setAlarm(target); state.event = "警報：3地点で異常反応を検知。照合して本物の改竄作業を特定してください。"; addLog("改竄作業の異常反応を3地点で検知。"); break; }
   }
 }
 function takeTurn() {
@@ -127,7 +133,7 @@ function selectNode(node) {
       if (state.evidence >= 1) return finish(true, `証拠を提示し、改竄者を${NODES[node]}で確保しました。`);
       const exits = neighbors(node).filter(next => !state.blocked.has(next) && next !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
       if (!exits.length) return finish(true, `${NODES[node]}で改竄者を追い詰め、確保しました。`);
-      state.editor.pos = exits[0]; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; state.traces.set(node, { ttl: 3, age: 0 }); state.event = `証拠が足りず、改竄者は「${NODES[exits[0]]}」へ逃げました。新しい痕跡を照合して証拠を集めてください。`; addLog("証拠不足で改竄者を取り逃がした。"); takeTurn(); return;
+      state.editor.pos = exits[0]; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; state.traces.set(node, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `証拠が足りず、改竄者は「${NODES[exits[0]]}」へ逃げました。新しい痕跡を照合して証拠を集めてください。`; addLog("証拠不足で改竄者を取り逃がした。"); } takeTurn(); return;
     }
     addLog(`${NODES[node]}へ移動。`); takeTurn();
   }
