@@ -31,6 +31,8 @@
       .node .trace.old { border-color:#857965; background:#e2d7b9; color:#655a4c; animation:none; }
       .node.charging { border-color:#d3432e; box-shadow:0 0 0 5px rgba(211,67,46,.24),0 3px 8px rgba(84,52,19,.32); animation:charge-alert 1s infinite; }
       .node .target.charging { background:#9d2d22; color:#fff1d4; }
+      .node.alarm { border-color:#ba6930; box-shadow:0 0 0 4px rgba(186,105,48,.2),0 3px 8px rgba(84,52,19,.28); }
+      .node .target.alarm { background:#a85e2d; color:#fff4d3; }
       .node.rebutted { border-color:#417b5c; background:radial-gradient(circle at 35% 28%,#c9e1af,#65875d); }
       .node .rebutted-mark { position:absolute; top:-21px; left:50%; transform:translateX(-50%); padding:2px 4px; border-radius:4px; background:#356143; color:#efffd5; font-size:.62rem; white-space:nowrap; }
       .node .scan-reading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:3px 6px; border:1px solid #367a4a; border-radius:99px; background:#e3f1c9; color:#245b34; font-size:.61rem; font-weight:900; line-height:1; white-space:nowrap; }
@@ -47,7 +49,7 @@
 
       <section class="brief panel">
         <div><p class="eyebrow">ONE SENTENCE RULE</p><h2>改竄者が <span class="accent">3つの公的記録</span> を書き換える前に、確保するか、証拠で反証する。</h2></div>
-        <p>改竄者は速く移動しますが、書き換えには2手の準備が必要です。新しい痕跡を<strong>照合</strong>すると証拠が得られ、証拠2つで書き換え済みの記録を取り戻せます。毎手、<strong>移動・照合・隔離・反証</strong>の一つを選んでください。</p>
+        <p>改竄者は速く移動しますが、書き換えには2手の準備が必要です。開始時には複数の異常反応が出るため、<strong>照合</strong>して本物を特定します。新しい痕跡から証拠を集めれば、確保と反証が可能になります。</p>
       </section>
 
       <section class="pulse panel">
@@ -72,11 +74,11 @@
         </section>
         <aside class="actions panel">
           <p class="eyebrow">YOUR TURN</p><h2>一手を選ぶ</h2>
-          <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。改竄者がいれば確保する。</span></button>
-          <button data-mode="scan" class="action" type="button"><strong>照合</strong><span>行動後の距離と方向を知る。新しい痕跡なら証拠も得る。</span></button>
+          <button data-mode="move" class="action active" type="button"><strong>移動</strong><span>隣の地点へ行く。確保には証拠が1つ必要。</span></button>
+          <button data-mode="scan" class="action" type="button"><strong>照合</strong><span>異常反応の本物を特定する。新しい痕跡なら証拠も得る。</span></button>
           <button data-mode="block" class="action" type="button"><strong>隔離</strong><span>一地点を相手の2手のあいだ閉鎖し、改竄準備を中断する。</span></button>
           <button data-mode="refute" class="action" type="button"><strong>反証</strong><span>証拠を2つ使い、書き換え済みの記録を一つ取り戻す。</span></button>
-          <div class="legend"><span>● あなた（現在地）</span><span>橙の札：新しい痕跡</span><span>茶の札：古い痕跡</span><span>赤：改竄準備中</span><span>✦ 書き換え済み</span><span>緑：反証済み</span><span>▣ 隔離中</span></div>
+          <div class="legend"><span>● あなた（現在地）</span><span>橙の札：新しい痕跡</span><span>茶の札：古い痕跡</span><span>橙赤：異常反応候補</span><span>赤：特定済みの改竄準備</span><span>✦ 書き換え済み</span><span>緑：反証済み</span><span>▣ 隔離中</span></div>
           <div class="log-box"><p class="eyebrow">INTELLIGENCE LOG</p><ul id="log"></ul></div>
         </aside>
       </section>
