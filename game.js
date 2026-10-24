@@ -2,6 +2,7 @@
 
 const NODES = ["港", "市場", "塔", "駅", "公園", "図書館", "病院", "劇場", "工場", "広場", "研究所", "屋上"];
 const MAP_POINTS = [[9, 18], [32, 12], [60, 18], [87, 13], [19, 42], [43, 35], [67, 42], [88, 34], [11, 73], [38, 78], [66, 68], [89, 76]];
+const PREP_STEPS = 3;
 const state = { player: 8, editor: null, turns: 0, blocks: 2, evidence: 0, mode: "move", blocked: new Map(), traces: new Map(), altered: new Set(), rebutted: new Set(), scan: null, pulse: null, status: "playing", log: [], event: "" };
 const $ = selector => document.querySelector(selector);
 const neighbors = node => [node - 4, node + 4, node % 4 ? node - 1 : -1, node % 4 !== 3 ? node + 1 : -1].filter(value => value >= 0 && value < 12);
@@ -51,12 +52,12 @@ function createPlan() {
   const seed = hash(`${pulse.tech}-${pulse.attention}-${pulse.earth}-${pulse.clock}`);
   const choices = [1, 2, 3, 4, 5, 6, 7, 9, 10, 11]; const targets = []; let value = seed;
   while (targets.length < 5) { value = (value * 1664525 + 1013904223) >>> 0; const choice = choices[value % choices.length]; if (!targets.includes(choice)) targets.push(choice); }
-  state.editor = { pos: 0, targets, index: 0, pace: pulse.pace, charge: 0, candidates: [], verified: false, heat: 0 };
+  state.editor = { pos: 0, targets, index: 0, pace: pulse.pace, charge: 0, candidates: [], tested: new Set(), verified: false, heat: 0 };
 }
 function setAlarm(target) {
   const near = [...new Set([...neighbors(target), ...neighbors(target).flatMap(neighbors)])].filter(node => node !== target);
   near.sort((a, b) => hash(`${state.pulse.clock}-${a}-${state.turns}`) - hash(`${state.pulse.clock}-${b}-${state.turns}`));
-  state.editor.candidates = [target, ...near.slice(0, 2)]; state.editor.verified = false;
+  state.editor.candidates = [target, ...near.slice(0, 2)]; state.editor.tested = new Set(); state.editor.verified = false;
 }
 function advanceTarget() {
   for (let attempt = 0; attempt < state.editor.targets.length; attempt += 1) {
@@ -67,7 +68,7 @@ function advanceTarget() {
 function redirectEditor() {
   state.editor.heat = (state.editor.heat || 0) + 1;
   if (state.editor.heat < 2) return false;
-  advanceTarget(); state.editor.heat = 0; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false;
+  advanceTarget(); state.editor.heat = 0; state.editor.charge = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false;
   state.event = "改竄者が追跡を振り切り、別の記録を狙い始めました。痕跡を照合して行き先を探ってください。"; addLog("改竄者が狙いを切り替えた。"); return true;
 }
 function newGame() {
@@ -86,11 +87,11 @@ function alterRecord() {
     const exits = neighbors(target).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
     state.editor.charge = 0;
     if (!exits.length) return finish(true, `${NODES[target]}を隔離し、逃げ場を失った改竄者を確保しました。`);
-    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.heat = 0; state.editor.candidates = []; state.editor.verified = false; state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避しました。`; addLog(`${NODES[target]}の隔離で改竄者が退避。`); return true;
+    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.heat = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避しました。`; addLog(`${NODES[target]}の隔離で改竄者が退避。`); return true;
   }
   state.editor.charge += 1;
-  if (state.editor.charge < 2) { state.event = `改竄者が「${NODES[target]}」の記録を書き換え中です（準備 ${state.editor.charge} / 2）。`; addLog(`${NODES[target]}で改竄準備を確認。`); return true; }
-  state.altered.add(target); state.rebutted.delete(target); state.editor.charge = 0; state.editor.heat = 0; state.editor.candidates = []; state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
+  if (state.editor.charge < PREP_STEPS) { state.event = `改竄者が「${NODES[target]}」の記録を書き換え中です（準備 ${state.editor.charge} / ${PREP_STEPS}）。`; addLog(`${NODES[target]}で改竄準備を確認。`); return true; }
+  state.altered.add(target); state.rebutted.delete(target); state.editor.charge = 0; state.editor.heat = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; addLog(`「${NODES[target]}」の記録が書き換えられました。`); state.event = `${NODES[target]}の記録が書き換え済みです。証拠2つで反証できます。`;
   if (state.altered.size >= 3) finish(false, "3つの記録が書き換えられ、都市の履歴が確定してしまいました。");
   if (state.status === "playing") advanceTarget();
   return true;
@@ -111,7 +112,7 @@ function editorTurn() {
     if (next === state.player) {
       const escapes = neighbors(before).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
       if (!escapes.length) return finish(true, `${NODES[before]}で改竄者を追い詰め、確保しました。`);
-      state.editor.pos = escapes[0]; state.editor.candidates = []; state.editor.verified = false; state.traces.set(before, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `改竄者はあなたを察知し、「${NODES[escapes[0]]}」へ逃げました。新しい痕跡を追ってください。`; addLog("改竄者が監査員を避けて逃走。"); } break;
+      state.editor.pos = escapes[0]; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; state.traces.set(before, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `改竄者はあなたを察知し、「${NODES[escapes[0]]}」へ逃げました。新しい痕跡を追ってください。`; addLog("改竄者が監査員を避けて逃走。"); } break;
     }
     state.editor.pos = next; state.traces.set(before, { ttl: 3, age: 0 });
     if (state.pulse.deceptive && (state.pulse.clock + state.turns + step) % 3 === 0) { const fake = neighbors(before).find(node => node !== state.editor.pos && !state.blocked.has(node)); if (fake !== undefined) state.traces.set(fake, { ttl: 2, age: 0 }); }
@@ -133,7 +134,7 @@ function selectNode(node) {
       if (state.evidence >= 1) return finish(true, `証拠を提示し、改竄者を${NODES[node]}で確保しました。`);
       const exits = neighbors(node).filter(next => !state.blocked.has(next) && next !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
       if (!exits.length) return finish(true, `${NODES[node]}で改竄者を追い詰め、確保しました。`);
-      state.editor.pos = exits[0]; state.editor.charge = 0; state.editor.candidates = []; state.editor.verified = false; state.traces.set(node, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `証拠が足りず、改竄者は「${NODES[exits[0]]}」へ逃げました。新しい痕跡を照合して証拠を集めてください。`; addLog("証拠不足で改竄者を取り逃がした。"); } takeTurn(); return;
+      state.editor.pos = exits[0]; state.editor.charge = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; state.traces.set(node, { ttl: 3, age: 0 }); const redirected = redirectEditor(); if (!redirected) { state.event = `証拠が足りず、改竄者は「${NODES[exits[0]]}」へ逃げました。新しい痕跡を照合して証拠を集めてください。`; addLog("証拠不足で改竄者を取り逃がした。"); } takeTurn(); return;
     }
     addLog(`${NODES[node]}へ移動。`); takeTurn();
   }
@@ -142,7 +143,7 @@ function selectNode(node) {
     addLog(`${NODES[node]}を照合。改竄者の行動後の信号を待機。`); takeTurn();
     if (state.status !== "playing") return;
     const path = shortestPath(node, state.editor.pos); const steps = path ? path.length - 1 : 99; const toward = steps > 0 && path ? NODES[path[1]] : null;
-    if (state.editor.candidates.includes(node) && steps === 0) { state.editor.verified = true; addLog(`${NODES[node]}の異常反応が本物の改竄作業だと特定。`); }
+    if (state.editor.candidates.includes(node)) { if (steps === 0) { state.editor.verified = true; addLog(`${NODES[node]}の異常反応が本物の改竄作業だと特定。`); } else { state.editor.tested.add(node); if (state.editor.tested.size >= state.editor.candidates.length - 1) { state.editor.verified = true; addLog("残る異常反応から、本物の改竄作業を特定。"); } else { addLog(`${NODES[node]}の異常反応は誤反応だと判明。`); } } }
     state.scan = { node, steps, toward }; state.event = steps === 0 ? `${NODES[node]}に改竄者がいます！ ${state.evidence ? "証拠を提示して確保できます。" : "証拠がないため、隔離か痕跡の照合を選んでください。"}` : `${NODES[node]}から最短 ${steps} 地点。次に近いのは「${toward}」です。`; addLog(`${NODES[node]}を照合。距離 ${steps}、${toward || "改竄者の地点"}方向。`); render();
   }
   if (state.mode === "block") {
@@ -159,7 +160,7 @@ function selectNode(node) {
 function finish(win, message) { state.status = win ? "won" : "lost"; state.event = message; addLog(message); render(); }
 function render() {
   const pulse = state.pulse || describePulse(fallbackPulse());
-  const chargingText = state.editor && state.editor.verified ? ` · 準備 ${state.editor.charge} / 2` : state.editor?.candidates.length ? " · 異常反応" : "";
+  const chargingText = state.editor && state.editor.verified ? ` · 準備 ${state.editor.charge} / ${PREP_STEPS}` : state.editor?.candidates.length ? " · 異常反応" : "";
   $("#turns").textContent = state.turns; $("#progress").textContent = `${state.altered.size} / 3${chargingText}`; $("#evidence").textContent = `${state.evidence} / 3`; $("#blocks").textContent = state.blocks;
   $("#pulse-title").textContent = pulse.live ? "公開フィードを受信中：改竄者の行動が変化" : "代替パルスで調査を維持中";
   $("#pulse-copy").textContent = `今回の改竄者の移動は最大 ${pulse.pace} 地点。技術活動と話題の熱は迂回・偽痕跡に、地球信号は行動速度に反映されます。`;
@@ -173,7 +174,7 @@ function render() {
   NODES.forEach((name, node) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "node"; button.dataset.node = node; button.disabled = state.status !== "playing"; button.style.setProperty("--x", `${MAP_POINTS[node][0]}%`); button.style.setProperty("--y", `${MAP_POINTS[node][1]}%`);
     if (node === state.player) button.classList.add("player"); if (state.mode === "move" && canMove(node)) button.classList.add("reachable"); if (state.blocked.has(node)) button.classList.add("blocked"); if (state.altered.has(node)) button.classList.add("activated"); if (state.rebutted.has(node)) button.classList.add("rebutted"); if (state.traces.has(node)) button.classList.add("has-trace"); if (state.scan?.node === node) button.classList.add("scan-result");
-    const traceInfo = state.traces.get(node); const trace = traceInfo ? `<span class="trace ${traceInfo.age === 0 ? "fresh" : "old"}">${traceInfo.age === 0 ? "新しい痕跡" : "古い痕跡"}</span>` : ""; const charging = state.editor && state.editor.index < state.editor.targets.length && state.editor.pos === node && state.editor.targets[state.editor.index] === node; const alarm = state.editor?.candidates.includes(node); if (charging && state.editor.verified) button.classList.add("charging"); if (alarm && !state.editor.verified) button.classList.add("alarm"); const target = state.altered.has(node) ? '<span class="target">書換済み</span>' : charging && state.editor.verified ? `<span class="target charging">改竄準備 ${state.editor.charge} / 2</span>` : alarm ? '<span class="target alarm">異常反応</span>' : ""; const scan = state.scan?.node === node ? `<span class="scan-reading">${state.scan.steps === 0 ? "改竄者あり" : `距離 ${state.scan.steps} → ${state.scan.toward}`}</span>` : ""; const rebutted = state.rebutted.has(node) ? '<span class="rebutted-mark">反証済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
+    const traceInfo = state.traces.get(node); const trace = traceInfo ? `<span class="trace ${traceInfo.age === 0 ? "fresh" : "old"}">${traceInfo.age === 0 ? "新しい痕跡" : "古い痕跡"}</span>` : ""; const charging = state.editor && state.editor.index < state.editor.targets.length && state.editor.pos === node && state.editor.targets[state.editor.index] === node; const alarm = state.editor?.candidates.includes(node); const tested = state.editor?.tested?.has(node); if (charging && state.editor.verified) button.classList.add("charging"); if (alarm && !state.editor.verified && !tested) button.classList.add("alarm"); if (tested) button.classList.add("tested"); const target = state.altered.has(node) ? '<span class="target">書換済み</span>' : charging && state.editor.verified ? `<span class="target charging">改竄準備 ${state.editor.charge} / ${PREP_STEPS}</span>` : tested ? '<span class="target tested">誤反応</span>' : alarm ? '<span class="target alarm">異常反応</span>' : ""; const scan = state.scan?.node === node ? `<span class="scan-reading">${state.scan.steps === 0 ? "改竄者あり" : `距離 ${state.scan.steps} → ${state.scan.toward}`}</span>` : ""; const rebutted = state.rebutted.has(node) ? '<span class="rebutted-mark">反証済み</span>' : ""; const you = node === state.player ? '<span class="you">あなた</span>' : "";
     button.innerHTML = `<span class="name">${name}</span><span class="symbol">${node === state.player ? "●" : state.blocked.has(node) ? "▣" : state.altered.has(node) ? "✦" : icon(node)}</span>${you}${trace}${target}${scan}${rebutted}`; board.append(button);
   });
   const result = $("#result"); result.classList.toggle("hidden", state.status === "playing");
