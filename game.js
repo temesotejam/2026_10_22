@@ -87,7 +87,7 @@ function alterRecord() {
     const exits = neighbors(target).filter(node => !state.blocked.has(node) && node !== state.player).sort((a, b) => distance(b, state.player) - distance(a, state.player));
     state.editor.charge = 0;
     if (!exits.length) return finish(true, `${NODES[target]}を隔離し、逃げ場を失った改竄者を確保しました。`);
-    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.heat = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避しました。`; addLog(`${NODES[target]}の隔離で改竄者が退避。`); return true;
+    state.traces.set(target, { ttl: 3, age: 0 }); state.editor.pos = exits[0]; state.editor.heat = 0; state.editor.candidates = []; state.editor.tested = new Set(); state.editor.verified = false; advanceTarget(); state.event = `${NODES[target]}の隔離で改竄準備を中断。改竄者は「${NODES[exits[0]]}」へ退避し、別の記録を狙い始めました。`; addLog(`${NODES[target]}の隔離で改竄者が退避・狙いを変更。`); return true;
   }
   state.editor.charge += 1;
   if (state.editor.charge < PREP_STEPS) { state.event = `改竄者が「${NODES[target]}」の記録を書き換え中です（準備 ${state.editor.charge} / ${PREP_STEPS}）。`; addLog(`${NODES[target]}で改竄準備を確認。`); return true; }
